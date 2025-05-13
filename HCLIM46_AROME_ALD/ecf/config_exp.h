@@ -209,7 +209,7 @@ TAUS=5400                               # cut-off frequency in second
 TSPAN=5400                              # 7200s or 5400s
 
 # **** Nesting ****
-HOST_MODEL="ifs"                        # Host model (ifs|hir|ald|ala|aro|racmo)
+HOST_MODEL="ala"                        # Host model (ifs|hir|ald|ala|aro|racmo)
                                         # ifs  : ecmwf data
                                         # hir  : hirlam data
                                         # ald  : Output from aladin physics
@@ -217,7 +217,7 @@ HOST_MODEL="ifs"                        # Host model (ifs|hir|ald|ala|aro|racmo)
                                         # aro  : Output from arome physics
                                         # racmo: RACMO2 data
 
-HOST_SURFEX="no"                        # yes if the host model is run with SURFEX
+HOST_SURFEX="yes"                        # yes if the host model is run with SURFEX
 NBDMAX=12                               # Number of parallel interpolation tasks
 MULTITASK=no                            # Submit jobs through the multi-task script
                                         #  yes|no, or list among: lbc,listen,obsmon,fldextr,femars,pertdia
@@ -235,7 +235,7 @@ SSTSIC_UPD="yes"                        # (yes|no) Switch to update SST/SIC duri
 
 INT_BDFILE=$WRK/ELSCF${CNMEXP}ALBC@NNN@                 # Interpolated boundary file name and location
 
-BDSTRATEGY=era5                 # Which boundary strategy to follow
+BDSTRATEGY=same_forecast                 # Which boundary strategy to follow
                                 # as defined in scr/Boundary_strategy.pl
                                 #
                                 # available            : Search for available files in BDDIR, try to keep forecast consistency
