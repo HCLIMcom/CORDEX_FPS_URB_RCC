@@ -39,8 +39,8 @@ sub Harmonie_domains{
    },
    'PARIS2.5'=>{
       'TSTEP'  => '75',
-      'NLON'   => '250',
-      'NLAT'   => '250',
+      'NLON'   => '300',
+      'NLAT'   => '300',
       'LONC'   => '2.7',
       'LATC'   => '48.7',
       'LON0'   => '10.5',
