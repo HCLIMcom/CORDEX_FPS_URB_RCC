@@ -127,6 +127,7 @@ NAM_IO_OFFLINE=>{
     CSEA    => '"SEAFLX",',
     CWATER  => '"'."$ENV{SURFEX_LAKES}".'",',
     CTOWN   => '"TEB ",',
+    LGARDEN => '.TRUE.,',
  },
  NAM_FLAKEn=>{
     LSEDIMENTS => '.FALSE.',
@@ -348,6 +349,10 @@ NAM_IO_OFFLINE=>{
  NAM_SURF_CSTS=>{
   XZ0SN         => '0.003,',
   XZ0HSN        => '0.0003,',
+ },
+ NAM_DIAG_TEBn=>{
+  LSURF_MISC_BUDGET => '.TRUE.,',	
+  LUTCI         => '.TRUE.,',
  },
  NAM_WRITE_SURF_ATM=>{
    LSPLIT_PATCH=>'.FALSE.,',

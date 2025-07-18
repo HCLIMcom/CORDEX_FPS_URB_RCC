@@ -27,56 +27,6 @@ sub Harmonie_domains{
   my $domain=shift;
 
   my %domains = (
-   'PARIS12.5'=>{
-      'TSTEP'  => '450',
-      'NLON'   => '216',
-      'NLAT'   => '180',
-      'LONC'   => '5',
-      'LATC'   => '47',
-      'LON0'   => '10.5',
-      'LAT0'   => '49.5',
-      'GSIZE'  => '12500.',
-   },
-   'PARIS2.5'=>{
-      'TSTEP'  => '75',
-      'NLON'   => '300',
-      'NLAT'   => '300',
-      'LONC'   => '2.7',
-      'LATC'   => '48.7',
-      'LON0'   => '10.5',
-      'LAT0'   => '49.5',
-      'GSIZE'  => '2500.',
-   },
-   'PanEuro12'=>{
-      'TSTEP'   => '300',
-      'NLON'    => '500',
-      'NLAT'    => '500',
-      'LONC'    => '-0.75',
-      'LATC'    => '52.25',
-      'GSIZE'   => '12000.',
-      'LON0'    => '3.0',
-      'LAT0'    => '52.25',
-   },
-   'JHB3' =>{
-      'TSTEP'  => '75',                           # Time step
-      'NLON'   => 480,                             # Number of grid points in X
-      'NLAT'   => 480,                             # Number of grid points in Y
-      'LONC'   => 29.097,                          # Approximate domain center longitude
-      'LATC'   => -28.873,                         # Approximate domain center latitude
-      'LON0'   => 29.097,                          # Reference longitude of projection (often center)
-      'LAT0'   => -28.873,                         # Reference latitude of projection
-      'GSIZE'  => 3000.,                            # Grid size in meters (assuming 0.0275 deg ≈ ~2.5 km)
-   },
-   'JHB2.5' =>{
-      'TSTEP'  => '75',                           # Time step
-      'NLON'   => 480,                             # Number of grid points in X
-      'NLAT'   => 480,                             # Number of grid points in Y
-      'LONC'   => 29.097,                          # Approximate domain center longitude
-      'LATC'   => -28.873,                         # Approximate domain center latitude
-      'LON0'   => 29.097,                          # Reference longitude of projection (often center)
-      'LAT0'   => -28.873,                         # Reference latitude of projection
-      'GSIZE'  => 2500.,                            # Grid size in meters (assuming 0.0275 deg ≈ ~2.5 km)
-   },
    'TRAINING_10' =>{
       'TSTEP'  => '240',                                 # Time step
       'NLON'   => '150',                                 # Number of points (x)
@@ -844,7 +794,7 @@ sub Harmonie_domains{
       'LAT0'   => '55.0',                              
       'GSIZE'  => '30000.',                            
    },
-   'EUR11'=>{
+   'EUR12'=>{
       'TSTEP'  => '450',
       'NLON'   => '480',
       'NLAT'   => '480',

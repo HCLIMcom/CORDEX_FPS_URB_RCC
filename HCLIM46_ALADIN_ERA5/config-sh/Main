@@ -58,18 +58,18 @@ while [ $# -gt 0 ]; do
     cla=$1
     if echo $cla | grep '=' >/dev/null ; then
         if echo $cla | grep '^DTG=' >/dev/null; then
-	    # Save also as DTG_CLA since DTG may be overridden by sourcing of progress.log
-	    cla2=$( echo $cla | sed 's/DTG=/DTG_CLA=/' )
-	    perform $cla2
-	elif echo $cla | grep '^LL=' >/dev/null; then     # LL -> LL_CLA
-	    cla=$( echo $cla | sed 's/LL=/LL_CLA=/' )
-	    HM_CLA="$HM_CLA $cla"
+            # Save also as DTG_CLA since DTG may be overridden by sourcing of progress.log
+            cla2=$( echo $cla | sed 's/DTG=/DTG_CLA=/' )
+            perform $cla2
+        elif echo $cla | grep '^LL=' >/dev/null; then     # LL -> LL_CLA
+            cla=$( echo $cla | sed 's/LL=/LL_CLA=/' )
+            HM_CLA="$HM_CLA $cla"
         else
             HM_CLA="$HM_CLA $cla"
         fi
-	perform $cla
+        perform $cla
     else
-	command=$command' '$cla
+        command=$command' '$cla
     fi
     shift
 done

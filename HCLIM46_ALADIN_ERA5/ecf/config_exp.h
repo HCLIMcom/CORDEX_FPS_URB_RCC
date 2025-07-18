@@ -7,7 +7,7 @@
 #
 # **** Build and bin paths ****
 # Definitions about Build, should fit with hm_rev
-BUILD=${BUILD-yes}                            # Turn on or off the compilation and binary build ( yes|no)
+BUILD=${BUILD-no}                            # Turn on or off the compilation and binary build ( yes|no)
 BINDIR=${BINDIR-$HM_DATA/bin}                 # Binary directory
 BUILD_WITH=${BUILD_WITH-makeup}               # Build system to use (makeup|cmake)
 CMAKE_BUILD_TYPE=Release                      # CMake build type (Debug|Release)
@@ -25,7 +25,7 @@ WRK=$HM_DATA/$CYCLEDIR                  # Work directory
 
 
 ARCHIVE_ROOT=$HM_DATA/archive           # Archive root directory
-ECFSLOC=ectmp                           # Archiving site at ECMWF-ECFS: "ec" or ECFS-TMP "ectmp"
+ECFSLOC=ec                              # Archiving site at ECMWF-ECFS: "ec" or ECFS-TMP "ectmp"
 ECFSGROUP=accord                        # Group in which to chgrp the ECMWF archive, "default" or "accord"
 EXTRARCH=$ARCHIVE_ROOT/extract          # Archive for fld/obs-extractions
 
@@ -36,11 +36,11 @@ RUNNING_MODE=research                   # Research or operational mode (research
                                         # observations are missing or assimilation fails
 
 SIMULATION_TYPE=climate                 # Type of simulation (nwp|climate)
-FP_PRECISION=dual                     # double|single|dual  (if makeup config file updated)
+FP_PRECISION=double                     # double|single|dual  (if makeup config file updated)
 [ "$FP_PRECISION" = "dual" ] && BINDIR=$HM_DATA/bin/R64
 
 # **** Model geometry ****
-DOMAIN=PARIS12.5                          # See definitions in scr/Harmonie_domains.pm
+DOMAIN=EUR12                           # See definitions in scr/Harmonie_domains.pm
 TOPO_SOURCE=gmted2010                   # Input source for orography. Available are (gmted2010|gtopo30)
 GRID_TYPE=LINEAR                        # Type of grid (LINEAR|QUADRATIC|CUBIC)
 VLEV=65                                 # Vertical level definition name
@@ -69,7 +69,7 @@ export PYTHONPATH="$PYSURFEX_INSTALL_DIR:$PYTHONPATH"
 
 CISBA="DIF"                             # Type of ISBA scheme in SURFEX. Options: "3-L"|"2-L"|"DIF"
 CSNOW="3-L"                             # Type of snow scheme in SURFEX. Options: "D95" and "3-L"
-CROUGH="Z01D"                           # SSO scheme used in SURFEX "NONE"|"Z01D"|"BE04"|"OROT"
+CROUGH="NONE"                           # SSO scheme used in SURFEX "NONE"|"Z01D"|"BE04"|"OROT"
 SURFEX_SEA_ICE="sice"                   # Treatment of sea ice in surfex (none|sice)
 MODIFY_LAKES=F                          # Use Vanern/VAttern as Sea, requires new climate files
 SURFEX_LAKES="FLAKE"                    # Treatment of lakes in surfex (WATFLX|FLAKE)
@@ -78,8 +78,8 @@ MASS_FLUX_SCHEME=edmfm                  # Version of EDMF scheme (edkf|edmfm)
                                         # edkf is the AROME-MF version
                                         # edmfm is the KNMI implementation of Eddy Diffusivity Mass Flux scheme for Meso-scale
 STATNW="yes"                            # Switch for new set up cloud scheme (yes|no)
-HARATU="no"                            # Switch for HARATU turbulence scheme (yes|no)
-HGT_QS="yes"                            # Switch for height dependent VQSIGSAT (yes|no)
+HARATU="no"                             # Switch for HARATU turbulence scheme (yes|no)
+HGT_QS="no"                             # Switch for height dependent VQSIGSAT (yes|no)
 WINDFARM="no"                           # Switch for Fitch et al. (2012) wind turbine parametrization (yes|no)
 ALARO_VERSION=0                         # Alaro version (1|0)
 NPATCH=3                                # Number of patches over land in SURFEX (see also LISBA_CANOPY)
@@ -161,7 +161,7 @@ JB_INTERPOL=no                          # Interpolation of structure functions f
 LBIGEZ_MINIM="no"                       # Use a large E-zone in the minimization (no|yes)
 LBGE_BIGEZ="no"                         # Derive background error statistics for domain with large extension zone
 PROLOG_INT_METHOD=fullpos               # Use gl or fullpos to changes resolution (fullpos|gl)
-JB_REF_DOMAIN=PARIS12.5                 # Reference domain used for interpolation of structure functions.
+JB_REF_DOMAIN=DKCOEXP                   # Reference domain used for interpolation of structure functions.
                                         # Note that the vertical level definition has to be the same
 
 # **** Observations ****
@@ -404,7 +404,7 @@ if [ "$SIMULATION_TYPE" = "climate" ]; then
   HH_LIST="00"                            # Which cycles to run, replaces FCINT                             | Irrelevant for climate simulations, but needs to be set
   LL_LIST="3"                             # Forecast lengths for the cycles [h], replaces LL, LLMAIN        | Irrelevant for climate simulations, but needs to be set
                                           # The LL_LIST list is wrapped around if necessary, to fit HH_LIST
-  HWRITUPTIMES="0"                        # History file output times, last step of cycle automatically appended
+  HWRITUPTIMES="00-760:1"                 # History file output times, last step of cycle automatically appended
   FULLFAFTIMES="$HWRITUPTIMES"            # History FA file IO server gather times. Must be equal to HWRITUPTIMES as convertFA cannot handle IOserver parts
   PWRITUPTIMES="00-760:1"                 # Postprocessing times
   PFFULLWFTIMES=$PWRITUPTIMES             # Postprocessing FA file IO server gathering times
@@ -415,7 +415,7 @@ if [ "$SIMULATION_TYPE" = "climate" ]; then
   SFXWFTIMES=$SWRITUPTIMES                # SURFEX history FA file IO server gathering times
 
   ARSTRATEGY="climate:fg:odb_stuff: \
-              an_fa:pp_nc"                # Files to archive on ECFS, see above for syntax
+              an_fa:fc_fa:pp_nc"                # Files to archive on ECFS, see above for syntax
 
 elif [ -z "$ENSMSEL" ] ; then
 
@@ -483,10 +483,15 @@ POSTP="inline"                          # Postprocessing by Fullpos (inline|offl
                                         # inline: this is run inside of the forecast
                                         # offline: this is run in parallel to the forecast in a separate task
 
-FREQ_RESET_TEMP=24                      # Reset frequency of max/min temperature values in hours, controls NRAZTS
-FREQ_RESET_GUST=24                      # Reset frequency of max/min gust values in hours, controls NXGSTPERIOD
+FREQ_RESET_TEMP=1                      # Reset frequency of max/min temperature values in hours, controls NRAZTS
+FREQ_RESET_GUST=1                      # Reset frequency of max/min gust values in hours, controls NXGSTPERIOD
                                         # Set to -1 to get the same frequency _AND_ reset behaviour as for min/max temperature
                                         # See yomxfu.F90 for further information.
+NTIMEFMT=0                              # Time format in FA output file names
+                                        #   0: +{HHHH} or +{step} (if TFLAG=min)
+                                        #   1: +{HHHH}:{mm}
+                                        #  10: +{HHHH}h
+                                        #  11: +{HHHH}h{mm}m
 NVGRIB=2                                # Level of GRIB packing for atmosphere FA files
                                         #   0: no packing: large files (ca 4x), slower conversion, no rounding errors after de-accumulation (no negative precip)
                                         #   2: v0mod GRIB: default
@@ -501,7 +506,7 @@ USEEPYGRAM="no"                         # (yes|no). Use epygram to read FA files
                                         # for firstguess4gridpp and offline forcing
 
 # **** GRIB/NC ****
-SAVE_FAOUTPUT="history:surfex:fullpos: \
+SAVE_FAOUTPUT="history:surfex: \
                surfexsele"              # Which FA output to save in ARCHIVE after successful conversion by convertFA (colon separated list)
 CONVERTFA=${CONVERTFA-yes}              # Conversion of FA file to GRIB/nc (yes|no)
 ARCHIVE_FORMAT=nc                       # Format of archive files (GRIB1|GRIB2|nc). nc format yet only available in climate mode
@@ -509,8 +514,7 @@ GRIB_BY_FULLPOS=no                      # Let fullpos write GRIB2
 NCNAMES=climate                         # Naming of NetCDF files follows (climate|nwp) convention.
 RCATDIR=$ARCHIVE_ROOT/RCAT              # Copy nc files in RCATVAR list to freq/var subdirs in this directory (careful: no cleaning applied!)
 RCATCPLN=cp                             # Copy or create soft links in the RCATDIR (cp|ln).
-RCATVARS="tas:pr:tasmax:tasmin:psl:rsds: \
-          clt:hfss:hfls:rlut:orog"      # Copy nc files of these variables to RCATDIR, colon separated list
+RCATVARS=""                             # Copy nc files of these variables to RCATDIR, colon separated list
 MAKEGRIB_LISTENERS=1                    # Number of parallel listeners for Makegrib
                                         # Only applicable if ARCHIVE_FORMAT=GRIB[1|2]
 
@@ -571,7 +575,7 @@ export CNMEXP RUNNING_MODE MASS_FLUX_SCHEME STATNW HARATU HGT_QS WINDFARM
 export INT_BDFILE INT_SINI_FILE WINDFARM_COORDS_FILE
 export ECOCLIMAP_VERSION SOIL_TEXTURE_VERSION LDB_VERSION ECOSG_ALB_VERSION USE_ONE_DECADE
 export SIMULATION_TYPE FP_PRECISION
-export ARSTRATEGY FREQ_RESET_TEMP FREQ_RESET_GUST NVGRIB
+export ARSTRATEGY NTIMEFMT FREQ_RESET_TEMP FREQ_RESET_GUST NVGRIB
 export IO_SERVER IO_SERVER_BD
 export MAIL_ON_ABORT MAIL_TESTBED
 export USE_MSG USE_DFS

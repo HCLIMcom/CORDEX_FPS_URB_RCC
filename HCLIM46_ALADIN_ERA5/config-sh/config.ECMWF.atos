@@ -70,21 +70,20 @@ if [ ${CODECOMPILE} == "no" ] ; then
   echo
 fi
 
-export HM_CS=${HM_CS-gnu}
+export HM_CS=${HM_CS-intel}
 module purge
 # Load modules needed
 if [ "$HM_CS" == "gnu" ]; then
   module load prgenv/gnu
-  module load ecflow/5.12.4
   module load hpcx-openmpi/2.9.0
   module load openblas/0.3.9
-  module load netcdf4/4.8.1
-  module load hdf5/1.12.1
+  module load netcdf4/4.9.3
+  module load hdf5/1.14.6
   module load ecmwf-toolbox/2021.08.3.0
   module load python3/3.8.8-01
   module load gdal/3.2.1
   module load udunits/2.2.28
-  module load proj/8.2.1
+  module load proj/9.5.1
   module load fftw/3.3.9
   module load nco
   export CMAKE_CONFIG=config.aa.GNU.json
@@ -92,14 +91,13 @@ elif [ "$HM_CS" == "intel" ]; then
   module load prgenv/intel
   module load intel-mkl/19.0.5
   module load hpcx-openmpi/2.9.0
-  module load ecflow/5.12.4
-  module load netcdf4/4.7.4
-  module load hdf5/1.10.6
+  module load netcdf4/4.9.3
+  module load hdf5/1.14.6
   module load ecmwf-toolbox/2021.08.3.0
   module load python3/3.8.8-01
   module load gdal/3.2.1
   module load udunits/2.2.28
-  module load proj/7.2.1
+  module load proj/9.5.1
   module load fftw/3.3.9
   module load nco
   export CMAKE_CONFIG=config.aa.Intel.json
@@ -110,13 +108,14 @@ module load cmake/3.20.2
 if [[ "${TASK-undef}" =~ ^(Archive_odb|verodb2sqlite)$ ]]; then
   module purge
   module load prgenv/gnu
-  module load ecflow/5.12.4
   module use /perm/hlam/apps/modulefiles/lmod
   module load odb_api/0.18.1
   module load python3/3.8.8-01
   module load odbcon/0.3.1
-  module list
 fi
+module load ecflow/5.14.0
+module list
+
 # Configuration identifier for makeup and util config files
 HARMONIE_CONFIG=ECMWF.atos
 export HARMONIE_CONFIG=${HARMONIE_CONFIG}.${HM_CS}

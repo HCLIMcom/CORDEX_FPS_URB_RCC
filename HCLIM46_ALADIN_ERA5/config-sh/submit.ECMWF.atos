@@ -271,7 +271,7 @@ $job_list{'Forecast'}{'WALLTIME'}           = $submit_type.' --time=01:30:00';
 $job_list{'Climate'}{'WALLTIME'}            = $submit_type.' --time=02:00:00';
 $job_list{'Makeup'}{'WALLTIME'}             = $submit_type.' --time=06:00:00';
 $job_list{'Makeup_configure'}{'WALLTIME'}   = $submit_type.' --time=01:30:00';
-$job_list{'Prepare_pgd'}{'WALLTIME'}        = $submit_type.' --time=04:00:00';
+$job_list{'Prepare_pgd'}{'WALLTIME'}        = $submit_type.' --time=12:00:00';
 $job_list{'Prep_ini_surfex'}{'WALLTIME'}    = $submit_type.' --time=02:00:00';
 $job_list{'Archive_mars'}{'WALLTIME'}       = $submit_type.' --time=01:00:00';
 $job_list{'Canari'}{'WALLTIME'}             = $submit_type.' --time=02:00:00';
