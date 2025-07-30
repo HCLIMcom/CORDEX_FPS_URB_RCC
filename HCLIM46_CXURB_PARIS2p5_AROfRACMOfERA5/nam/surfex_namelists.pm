@@ -330,7 +330,7 @@ NAM_IO_OFFLINE=>{
    XCOROT   => '500.,',
  },
  NAM_SEAFLUXn=>{
-  CSEA_FLUX => '"ECUME",',
+  CSEA_FLUX => '"ECUME6",',
   LPWG      => '.FALSE.,',
   LPRECIP   => '.FALSE.,',
   LPWEBB    => '.FALSE.,',
