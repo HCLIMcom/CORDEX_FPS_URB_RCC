@@ -1,0 +1,17 @@
+Remove this file to sync your experiment with /perm/nkl/git/github/Hirlam/HCLIM/HCLIM46_develop
+
+Status of /perm/nkl/git/github/Hirlam/HCLIM/HCLIM46_develop:
+
+commit c68d3678cd891b003d4c9e1261be41bf3e8c3912
+Author: Bert van Ulft <ulft@knmi.nl>
+Date:   Fri Jul 18 08:56:54 2025 +0200
+
+    RACMO fixes from CORDEX-FPS-URB-RCC (Hirlam/HCLIM#195)
+    
+    * Make SST_MODEL in Interpol_sst* scripts case insensitive
+    * Echo file names when archiving netcdf files to ECFS
+    * Add RACMO as host model to PREP for garden
+    * Always allow to run with updating SST/SIC for RACMO
+    * Add @XM@ macro to fill in decade (10 day period in month, 1: 1-10, 2:11-20, 3: >= 21), Needed to untar RACMO boundaries
+    * For @XM@ add perl ceil and min also to parse4mars.pl, which uses Boundary_strategy.pm
+    * Change macro for decade from @XM@ to @X@; only 1 digit used
