@@ -1,0 +1,51 @@
+#!/bin/bash
+
+. header.sh
+
+# Create the directory for this day
+Access_lpfs -mkdir ${ECFSLOC}:${HM_EXP}/$YY/$MM/$DD/
+
+# go to archive log directory
+LARCHIVE=$ARCHIVE_ROOT/log
+cd $LARCHIVE
+
+# create a zip file with the changed source code and scripts for reference, only at run start
+if [ $DTG -eq $DTGBEG ] ; then
+  ffexp=${EXP}_${DTGBEG}.tar.gz
+  cd $HM_WD/..
+  tar czvf $LARCHIVE/$ffexp `basename $HM_WD`
+  cd $LARCHIVE
+  Access_lpfs -to $ffexp ${ECFSLOC}:$HM_EXP/$ffexp
+  rm -f $ffexp
+fi
+
+# Summarize the SBUs for this cycle, at the end store in ECFS
+GetSBU.pl HM_*_${DTG}.html > $ARCHIVE/SBU_${DTG}.log
+cat $ARCHIVE/SBU_${DTG}.log >> $HM_DATA/SBU.log
+if [ $DTG -eq $DTGEND ] ; then
+  Access_lpfs -to $HM_DATA/SBU.log ${ECFSLOC}:$HM_EXP/SBU.log
+fi
+
+# Archive logfiles from the current cycle, including SBU log
+tarlog=logfiles_${DTG}.tar
+tar cvf $tarlog HM_*_${DTG}.html
+cd $ARCHIVE
+if [ -f SBU_${DTG}.log ] ; then
+  tar rvf $LARCHIVE/$tarlog SBU_${DTG}.log
+fi
+cd $LARCHIVE
+gzip -f $tarlog
+Access_lpfs -to $tarlog.gz ${ECFSLOC}:$HM_EXP/$YY/$MM/$DD/$HH/$tarlog.gz
+
+# Clean
+rm -f $tarlog.gz SBU_${DTG}.log
+
+trap 0
+exit
+
+
+
+
+
+
+

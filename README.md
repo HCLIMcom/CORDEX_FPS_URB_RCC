@@ -14,8 +14,13 @@
 
 ## KNMI: RACMO nested experiments
 
-### RACMO: eR2v3-v578ec-Y9909-LU2015-MAC2SP-fERA5
+### RACMO: eR2v3-v578ec-Y9909-LU2015-MAC2SP-fERA5 (1999-2009)
 *RACMO run on the EUR12 domain, nested in ERA5.1, restarted on 1998120100 from a simulation started in 1979.*
+
+Boundaries for HCLIM created from this experiment are stored in ECFS in `ec:/rus/HXEUR12/eR2v3-v578ec-Y9909-LU2015-MAC2SP-fERA5/RACMO_HarmLBC`.
+
+### RACMO: eR2v3-v578ec-Y2023-LU2015-MAC2SP-fERA5 (2020-2023)
+*Same as eR2v3-v578ec-Y9909-LU2015-MAC2SP-fERA5, but from different years, with many observations. Restarted on 2019120100 from a simulation started in 1979.*
 
 Boundaries for HCLIM created from this experiment are stored in ECFS in `ec:/rus/HXEUR12/eR2v3-v578ec-Y9909-LU2015-MAC2SP-fERA5/RACMO_HarmLBC`.
 
@@ -61,6 +66,34 @@ Boundaries for HCLIM created from this experiment are stored in ECFS in `ec:/rus
   * Archiving path `HM_ARC` in Env_system
   * In config_exp.h (e.g. domain, hourly reset of min/max temp, FA time format & compression)
   * Archiving of logs slightly modified (archive)
+
+### HCLIM46_CXURB_PARIS2p5_Y2023_AROfRACMOfERA5 (2020-2023)
+*Same as HCLIM46_CXURB_PARIS2p5_AROfRACMOfERA5, but for different period, with lots of observations. 2020 is a spin-up year.*
+
+|                |     |
+|----            |---- |
+| Domain         | PARIS2.5  |
+| nlev           | 65        |
+| dynamics       | nh        |
+| physics        | arome     |
+| boundaries     | RACMO from ec:/rus/HXEUR12/eR2v3-v578ec-Y2023-LU2015-MAC2SP-fERA5/RACMO_HarmLBC |
+| BDINT          | 1         |
+| climate files  | used from `HCLIM46_CXURB_PARIS2p5_AROfRACMOfERA5` |
+| machine        | ECMWF.atos, 4 nodes (14x18+4, 4 threads)|
+| setup command  | copied from `HCLIM46_CXURB_PARIS2p5_AROfRACMOfERA5`, removed experiment is locked, added mods |
+| start command  | `Harmonie start DTG=2020010100 DTGEND=2024010100` |
+| started on     | 20250811 |
+| completed on   |  |
+| ran by         | Bert van Ulft (nkl) |
+| archive        | `ec:harmonie/CORDEX_FPS_URB_RCC/stage1/HCLIM46_CXURB_PARIS2p5_Y2023_AROfRACMOfERA5` |
+| HCLIM git      | Hirlam/HCLIM, taken from $PERM/git/github/Hirlam/HCLIM/HCLIM46_develop|
+| HCLIM revision | [branch HCLIM46_develop@c68d3678](https://github.com/Hirlam/HCLIM/commit/c68d3678cd891b003d4c9e1261be41bf3e8c3912) |
+| CX EXP revision@start | [26d23457](https://github.com/HCLIMcom/CORDEX_FPS_URB_RCC/commit/26d23457614444377cf1d2dd13d9ed0d0d20640a) |
+| CX EXP revision@end   |  |
+
+#### Modifications
+* all those from HCLIM46_CXURB_PARIS2p5_AROfRACMOfERA5
+* point BINDIR and CLIMDIR to HCLIM46_CXURB_PARIS2p5_AROfRACMOfERA5 exp
 
 ## Domains
 
