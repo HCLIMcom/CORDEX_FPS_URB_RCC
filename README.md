@@ -83,13 +83,13 @@ Boundaries for HCLIM created from this experiment are stored in ECFS in `ec:/rus
 | setup command  | copied from `HCLIM46_CXURB_PARIS2p5_AROfRACMOfERA5`, removed experiment is locked, added mods |
 | start command  | `Harmonie start DTG=2020010100 DTGEND=2024010100` |
 | started on     | 20250811 |
-| completed on   |  |
+| completed on   | 20250815 |
 | ran by         | Bert van Ulft (nkl) |
 | archive        | `ec:harmonie/CORDEX_FPS_URB_RCC/stage1/HCLIM46_CXURB_PARIS2p5_Y2023_AROfRACMOfERA5` |
 | HCLIM git      | Hirlam/HCLIM, taken from $PERM/git/github/Hirlam/HCLIM/HCLIM46_develop|
 | HCLIM revision | [branch HCLIM46_develop@c68d3678](https://github.com/Hirlam/HCLIM/commit/c68d3678cd891b003d4c9e1261be41bf3e8c3912) |
 | CX EXP revision@start | [f48e5168](https://github.com/HCLIMcom/CORDEX_FPS_URB_RCC/commit/f48e5168adc044800ebbac53a3562cca50b7e7d6) |
-| CX EXP revision@end   |  |
+| CX EXP revision@end   | [f48e5168](https://github.com/HCLIMcom/CORDEX_FPS_URB_RCC/commit/f48e5168adc044800ebbac53a3562cca50b7e7d6) |
 
 #### Modifications
 * all those from HCLIM46_CXURB_PARIS2p5_AROfRACMOfERA5
