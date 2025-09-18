@@ -1,0 +1,96 @@
+# Main directory 
+CMOR_dir: /home/ecmwf_username/CMORise
+
+# ECMWF billing account
+account: ecmwf_project_account
+
+# List of experiments to CMOR (the names should much the ones in config/config_experiment)
+experiment: 
+  - HCLIM46_ALADIN_ECMWF_ERA5_EUR12_EVAL
+  - HCLIM46_AROME_ECMWF_ERA5_PARIS2.5_EVAL 
+  - HCLIM46_ALADIN_ECMWF_ERA5_EUR12_EXT
+  - HCLIM46_AROME_ECMWF_ERA5_PARIS2.5_EXT
+
+# List of different tasks with their corresponding variables and frequencies to cmorize
+# If memory is true, the SBATCH script will use the memory assign  in ecflow_submit block (further down)
+ecflow_blocks:
+
+  fx:
+    frequency: fx
+    variables: mrsofc,orog,sfturf,sftlaf,sftlf
+    memory: false
+
+  thermo_1:
+    frequency: subday, day, mon
+    variables: tas,tasmax,tasmin,huss,hurs
+    memory: false
+
+  thermo_2:
+    frequency: subday, day, mon
+    variables: ps,psl,sfcWind,uas,vas,ts,z0
+    memory: false
+
+  accumulated_1:
+    frequency: subday, day, mon
+    variables: pr,prc,prsn,clt
+    memory: true
+
+  accumulated_2:
+    frequency: subday, day, mon
+    variables: evspsbl,hfls,hfss,rsds,rlds
+    memory: true
+
+  soil:
+    frequency: subday, day, mon
+    variables: tsl
+    memory: true
+
+  urban_1:
+    frequency: subday, day, mon
+    variables: tastown,taspav,tasgree,tsskin,tspav,tsroof,tsgree
+    memory: false
+
+  urban_2:
+    frequency: subday, day, mon 
+    variables: anthroheat,taswater,tswater,tascan,hurscan,husscan,sfcWindcan
+    memory: false
+
+  offline:
+    frequency: subday, day, mon
+    variables: ta50m,hus50m,ua50m,va50m,zmla
+    memory: false
+
+  plev_1:
+    frequency: subday, day, mon
+    variables: ua1000,ua925,ua850,ua700,va1000,va925,va850,va700
+    memory: false
+
+  plev_2:
+    frequency: subday, day, mon
+    variables: ta1000,ta925,ta850,ta700,zg1000,zg925,zg850,zg700
+    memory: false
+
+# Specify walltime and maximum memory for the different frequencies
+ecflow_submit:
+
+  fx:
+    walltime: '00:15:00'
+    max_memory: 
+
+  subday:
+    walltime: '12:00:00'
+    max_memory: 48GB
+
+  day:
+    walltime: '6:00:00'
+    max_memory: 32GB
+
+  mon:
+    walltime: '6:00:00'
+    max_memory: 32GB
+
+# Other ecflow settings
+ecflow_settings:
+
+   maximum_number_simultaneous_tasks: 5
+

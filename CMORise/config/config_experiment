@@ -1,0 +1,200 @@
+# ------ driving model info --------
+case ${run_in[$run]} in
+
+###############################################
+####                                       ####
+####            URB-RCC stage-1            ####
+####                                       ####
+###############################################
+
+
+# ---  HCLIM46_ALADIN (ECMWF-ERA5 -> ALADIN EUR 12.5 km) (1999.01.01 - 2010.01.01) ---
+HCLIM46_ALADIN_ECMWF_ERA5_EUR12_EVAL)
+
+                # Experiment name
+                exp_name='HCLIM46_EUR12_ALADIN_v1_URBRCC_EVAL'
+		# Input data path
+                path_in='/ec/res4/scratch/suaj/hm_home/HCLIM46_EUR12_ALADIN_v1_URBRCC_EVAL/archive/'
+                path_out='/ec/res4/scratch/suaj/URB-RCC/CMOR/HCLIM46_EUR12_ALADIN_v1_URBRCC_EVAL/'
+		# HCLIM domain name
+		domain_hclim="EUR12"
+
+		# Year of simulation
+                first_year=1999
+		last_year=2009
+		# Calendar
+		calendar='standard'
+
+		# nested run FALSE/TRUE
+		nested='FALSE'
+
+		# netCDF metadata
+                activity_id='DD'
+                contact='aitor.aldamacampino@smhi.se | fuxing.wang@smhi.se'
+                comment='ERA5.1 | HCLIM46-ALADIN 12.5km Europe | Model Evaluation'
+                domain="Europe"
+                domain_id="EUR-12"
+		driving_experiment='reanalysis simulation of the recent past'
+                driving_experiment_id='evaluation'
+                driving_institution='European Centre for Medium-Range Weather Forecasts, Reading RG2 9AX, UK'
+                driving_institution_id='ECMWF'
+                driving_source='ECMWF Reanalysis v5.1'
+                driving_source_id='ERA5'
+                driving_variant_label='r1i1p1f1'
+                experiment='Evaluation runs for Paris region'
+                experiment_id='URBRCC_EVAL'
+                experiment_version='v1-fpsurbrcc-s1r1'
+                institution='HARMONIE Climate Modelling Community (HCLIMcom) partner: Swedish Meteorological and Hydrological Institute (SMHI), Norrkoping, Sweden'
+                institution_id='HCLIMcom-SMHI'
+                grid_info='Lambert conic conformal with 12.5 km grid spacing'
+                project_id='CORDEX FPS URB-RCC | stage-1'
+                source='HARMONIE Climate model cycle 46 with ALADIN physics'
+                source_id='HCLIM46-ALADIN'
+                source_type='ARCM';;
+
+# ---  HCLIM46_AROME (ECMWF-ERA5 -> ALADIN EUR 12.5 km -> AROME PARIS 2.5 km) (1999.01.01 - 2010.01.01) ---
+HCLIM46_AROME_ECMWF_ERA5_PARIS2.5_EVAL)
+
+                # Experiment name
+                exp_name='HCLIM46_PARIS2p5_AROME_v1_URBRCC_EVAL'
+                # Input data path
+                path_in='/ec/res4/scratch/suaj/hm_home/HCLIM46_PARIS2p5_AROME_v1_URBRCC_EVAL/archive/'
+                path_out='/ec/res4/scratch/suaj/URB-RCC/CMOR/HCLIM46_PARIS2p5_AROME_v1_URBRCC_EVAL/'
+                # HCLIM domain name
+                domain_hclim="PARIS2.5"
+
+                # Year of simulation
+                first_year=1999
+                last_year=2009
+                # Calendar
+                calendar='standard'
+
+                # nested run FALSE/TRUE
+                nested='TRUE'
+
+                # netCDF metadata
+                activity_id='DD'
+                contact='aitor.aldamacampino@smhi.se | fuxing.wang@smhi.se'
+                comment='ERA5.1 | HCLIM46-ALADIN 12.5km Europe | HCLIM46-AROME 2.5km Paris | Model Evaluation'
+                domain="Europe"
+                domain_id="PARIS-2.5"
+                driving_experiment='reanalysis simulation of the recent past'
+                driving_experiment_id='evaluation'
+                driving_institution='European Centre for Medium-Range Weather Forecasts, Reading RG2 9AX, UK'
+                driving_institution_id='ECMWF'
+                driving_source='ECMWF Reanalysis v5.1'
+                driving_source_id='ERA5'
+                driving_variant_label='r1i1p1f1'
+                experiment='Evaluation runs for Paris region'
+                experiment_id='URBRCC_EVAL'
+                experiment_version='v1-fpsurbrcc-s1r1'
+                institution='HARMONIE Climate Modelling Community (HCLIMcom) partner: Swedish Meteorological and Hydrological Institute (SMHI), Norrkoping, Sweden'
+                institution_id='HCLIMcom-SMHI'
+                grid_info='Lambert conic conformal with 2.5 km grid spacing'
+                project_id='CORDEX FPS URB-RCC | stage-1'
+                parent_source='HARMONIE Climate model cycle 46 with ALADIN physics'
+                parent_source_type='ARCM'      
+                parent_source_id='HCLIM46-ALADIN'
+                parent_domain_id='EUR-12'
+                source='HARMONIE Climate model cycle 46 with AROME physics'
+                source_id='HCLIM46-AROME'
+                source_type='ARCM';;
+
+# ---  HCLIM46_ALADIN (ECMWF-ERA5 -> ALADIN EUR 12.5 km) (2020.01.01 - 2024.01.01) ---
+HCLIM46_ALADIN_ECMWF_ERA5_EUR12_EXT)
+
+                # Experiment name
+                exp_name='HCLIM46_EUR12_ALADIN_v1_URBRCC_EXT'
+                # Input data path
+                path_in='/ec/res4/scratch/suaj/hm_home/HCLIM46_EUR12_ALADIN_v1_URBRCC_EXT/archive/'
+                path_out='/ec/res4/scratch/suaj/URB-RCC/CMOR/HCLIM46_EUR12_ALADIN_v1_URBRCC_EXT/'
+                # HCLIM domain name
+                domain_hclim="EUR12"
+
+                # Year of simulation
+                first_year=2020
+                last_year=2023
+                # Calendar
+                calendar='standard'
+
+                # nested run FALSE/TRUE
+                nested='FALSE'
+
+                # netCDF metadata
+                activity_id='DD'
+                contact='aitor.aldamacampino@smhi.se | fuxing.wang@smhi.se'
+                comment='ERA5.1 | HCLIM46-ALADIN 12.5km Europe | Model Evaluation'
+                domain="Europe"
+                domain_id="EUR-12"
+                driving_experiment='reanalysis simulation of the recent past'
+                driving_experiment_id='evaluation'
+                driving_institution='European Centre for Medium-Range Weather Forecasts, Reading RG2 9AX, UK'
+                driving_institution_id='ECMWF'
+                driving_source='ECMWF Reanalysis v5.1'
+                driving_source_id='ERA5'
+                driving_variant_label='r1i1p1f1'
+                experiment='Optional extended evaluation runs for intense observation period in the Paris region'
+                experiment_id='URBRCC_EXT'
+                experiment_version='v1-fpsurbrcc-s1r1'
+                institution='HARMONIE Climate Modelling Community (HCLIMcom) partner: Swedish Meteorological and Hydrological Institute (SMHI), Norrkoping, Sweden'
+                institution_id='HCLIMcom-SMHI'
+                grid_info='Lambert conic conformal with 12.5 km grid spacing'
+                project_id='CORDEX FPS URB-RCC | stage-1'
+                source='HARMONIE Climate model cycle 46 with ALADIN physics'
+                source_id='HCLIM46-ALADIN'
+                source_type='ARCM';;
+
+# ---  HCLIM46_AROME (ECMWF-ERA5 -> ALADIN EUR 12.5 km -> AROME PARIS 2.5 km) (2020.01.01 - 2024.01.01) ---
+HCLIM46_AROME_ECMWF_ERA5_PARIS2.5_EXT)
+
+                # Experiment name
+                exp_name='HCLIM46_PARIS2p5_AROME_v1_URBRCC_EXT'
+                # Input data path
+                path_in='/ec/res4/scratch/suaj/hm_home/HCLIM46_PARIS2p5_AROME_v1_URBRCC_EXT/archive/'
+                path_out='/ec/res4/scratch/suaj/URB-RCC/CMOR/HCLIM46_PARIS2p5_AROME_v1_URBRCC_EXT/'
+                # HCLIM domain name
+                domain_hclim="PARIS2.5"
+
+                # Year of simulation
+                first_year=2020
+                last_year=2023
+                # Calendar
+                calendar='standard'
+
+                # nested run FALSE/TRUE
+                nested='TRUE'
+
+                # netCDF metadata
+                activity_id='DD'
+                contact='aitor.aldamacampino@smhi.se | fuxing.wang@smhi.se'
+                comment='ERA5.1 | HCLIM46-ALADIN 12.5km Europe | HCLIM46-AROME 2.5km Paris | Model Evaluation'
+                domain="Europe"
+                domain_id="PARIS-2.5"
+                driving_experiment='reanalysis simulation of the recent past'
+                driving_experiment_id='evaluation'
+                driving_institution='European Centre for Medium-Range Weather Forecasts, Reading RG2 9AX, UK'
+                driving_institution_id='ECMWF'
+                driving_source='ECMWF Reanalysis v5.1'
+                driving_source_id='ERA5'
+                driving_variant_label='r1i1p1f1'
+                experiment='Optional extended evaluation runs for intense observation period in the Paris region'
+                experiment_id='URBRCC_EXT'
+                experiment_version='v1-fpsurbrcc-s1r1'
+                institution='HARMONIE Climate Modelling Community (HCLIMcom) partner: Swedish Meteorological and Hydrological Institute (SMHI), Norrkoping, Sweden'
+                institution_id='HCLIMcom-SMHI'
+                grid_info='Lambert conic conformal with 2.5 km grid spacing'
+                project_id='CORDEX FPS URB-RCC | stage-1'
+                parent_source='HARMONIE Climate model cycle 46 with ALADIN physics'
+                parent_source_type='ARCM'
+                parent_source_id='HCLIM46-ALADIN'
+                parent_domain_id='EUR-12'
+                source='HARMONIE Climate model cycle 46 with AROME physics'
+                source_id='HCLIM46-AROME'
+                source_type='ARCM';;
+
+#  --- missing simulation id
+*)  echo ...   no simulation   '"'${run_in[$run]}'"'  in  $file_run
+    echo ...   TERMINATED
+    exit;;
+
+esac

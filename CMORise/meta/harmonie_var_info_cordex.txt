@@ -1,0 +1,541 @@
+case ${var_in[$var]} in
+
+
+  # ---  Anthropogenic heat flux  ---
+  anthroheat) harm_name='anthroheat'
+              st_name='anthropogenic_heatflux'
+              long_name='Anthropogenic heat flux'
+              units='W m-2'
+              cell_methods='time: point'
+              realm='land'
+              area='Town';;
+
+  # --- Total cloudiness   ---
+  clt)       harm_name='clt'
+             st_name='cloud_area_fraction'
+             long_name='Total Cloud Fraction'
+             units=%
+             realm='atmos'
+             cell_methods='time: mean';;
+
+  # --- Evaporation grid average land ---
+  evspsbl)   harm_name='evspsbl'
+             st_name='water_evaporation_flux'
+             long_name='Evaporation'
+             units='kg m-2 s-1'
+             realm='atmos'
+             cell_methods='time: mean';;
+
+  # --- Surface Upward Latent Heat Flux  ---
+  hfls)      harm_name='hfls'
+             st_name='surface_upward_latent_heat_flux'
+             long_name='Surface Upward Latent Heat Flux'
+             units='W m-2'
+             positive='up'
+             realm='atmos'
+             cell_methods='time: mean';;
+
+  # --- Surface Upward Sensible Heat Flux  ---
+  hfss)      harm_name='hfss'
+             st_name='surface_upward_sensible_heat_flux'
+             long_name='Surface Upward Sensible Heat Flux'
+             units='W m-2'
+             positive='up'
+             realm='atmos'
+             cell_methods='time: mean';;
+
+  # --- Specific humidity at 50m   ---
+  hus50m)    harm_name='hus50m'
+             st_name='specific_humidity'
+             long_name='Specific Humidity at 50m'
+             units='1'
+             realm='atmos'
+             cell_methods='time: point'
+             height=50;;
+
+  # --- Near Surface Specific humidity   ---
+  huss)     harm_name='huss'
+            st_name='specific_humidity'
+            long_name='Near-Surface Specific Humidity'
+            units='1'
+            cell_methods='time: point'
+            realm='atmos'
+            height=2;;
+
+  # --- Near Surface Specific humidity in urban canyon   ---
+  husscan)  harm_name='husscan'
+            st_name='specific_humidity_canyon'
+            long_name='Near-Surface Specific Humidity within canyon'
+            units='1'
+            cell_methods='time: point'
+            realm='land'
+            area='Town'
+            height=2;;
+
+  # --- Near Surface relative humidity   ---
+  hurs)     harm_name='hurs'
+            st_name='relative_humidity'
+            long_name='Near-Surface Relative Humidity'
+            units='%'
+            cell_methods='time: point'
+            realm='atmos'
+            height=2;;
+
+  # --- Near Surface relative humidity   ---
+  hurscan)  harm_name='hurscan'
+            st_name='relative_humidity_canyon'
+            long_name='Near-Surface Relative Humidity within canyon'
+            units='%'
+            cell_methods='time: point'
+            realm='land'
+            area='Town'
+            height=2;;
+
+  # --- Soil moisture content   ---
+  mrsofc)     harm_name=mrsofc
+              st_name='soil_moisture_content_at_field_capacity'
+              long_name='Capacity of Soil to Store Water (Field Capacity)'
+              realm='land'
+              units='kg m-2';;
+
+  # --- Surface Altitude   ---
+  orog)       harm_name=orog
+              st_name='surface_altitude'
+              long_name='Surface Altitude'
+              realm='land'
+              units=m;;
+
+  # ---  Precipitation   ---
+  pr)        harm_name='pr'
+             st_name='precipitation_flux'
+             long_name='Precipitation'
+             units='kg m-2 s-1'
+             realm='atmos'
+             cell_methods='time: mean';;
+
+  prsn)      harm_name='prsn'
+             st_name='snowfall_flux'
+             long_name='Snowfall'
+             units='kg m-2 s-1'
+             realm='atmos'
+             cell_methods='time: mean';;
+             
+  prc)      harm_name='prc'
+            st_name='convective_precipitation_flux'
+            long_name='Convective Precipitation'
+            units='kg m-2 s-1'
+            realm='atmos'
+            cell_methods='time: mean';;
+
+  # ---  Sea level pressure  ---
+  ps)       harm_name='ps'
+            st_name='surface_air_pressure'
+            long_name='Surface Air Pressure'
+            units='Pa'
+            realm='atmos'
+            cell_methods='time: point';;
+
+  # --- Mean sea level pressure  ---
+  psl)      harm_name='psl'
+            st_name='air_pressure_at_sea_level'
+            long_name='Sea Level Pressure'
+            units='Pa'
+            realm='atmos'
+            cell_methods='time: point';;
+
+  # --- Surface Downwelling Shortwave Radiation ---
+  rsds)      harm_name='rsds'
+             st_name='surface_downwelling_shortwave_flux_in_air'
+             long_name='Surface Downwelling Shortwave Radiation'
+             units='W m-2'
+             positive='down'
+             realm='atmos'
+             cell_methods='time: mean';;
+
+  # --- Surface Downwelling Longwave Radiation ---
+  rlds)      harm_name='rlds'
+             st_name='surface_downwelling_longwave_flux_in_air'
+             long_name='Surface Downwelling Longwave Radiation'
+             units='W m-2'
+             positive='down'             
+             realm='atmos'
+             cell_methods='time: mean';;
+
+  # --- Urban Area Fraction   ---
+  sfturf)     harm_name=sfturf
+              st_name='urban_area_fraction'
+              long_name='Percentage of the Grid Cell Occupied by City'
+              realm='land'
+              units=%;;
+
+  # --- Lake Area Fraction   ---
+  sftlaf)     harm_name=sftlaf
+              st_name='lake_area_fraction'
+              long_name='Percentage of the Grid Cell Occupied by Lake'
+              realm='land'
+              units=%;;
+
+  # --- Land Area Fraction   ---
+  sftlf)      harm_name=sftnf
+              st_name='land_area_fraction'
+              long_name='Percentage of the Grid Cell Occupied by Land'
+              realm='land'
+              units=%;;
+
+  # --- Near surface winds  ---
+  sfcWind)  harm_name='sfcWind'
+            st_name='wind_speed'
+            long_name='Near-Surface Wind Speed'
+            units='m s-1'
+            realm='atmos'
+            cell_methods='time: point'
+            height=10;;
+
+  # --- Near surface winds within urban canyon ---
+  sfcWindcan)  harm_name='sfcWindcan'
+               st_name='wind_speed_canyon'
+               long_name='Near-Surface Wind Speed within canyon'
+               units='m s-1'
+               realm='land'
+               area='Town'
+               cell_methods='time: point'
+               height=10;;
+
+  # --- Air temperature at 1000 hPa   ---
+  ta1000)    harm_name='ta1000'
+             grib_lev=10000
+             st_name='air_temperature'
+             long_name='Air Temperature'
+             units='K'            
+             realm='atmos'
+             cell_methods='time: point';;
+
+  # --- Air temperature at 925 hPa   ---
+  ta925)     harm_name='ta925'
+             grib_lev=92500
+             st_name='air_temperature'
+             long_name='Air Temperature'
+             units='K'           
+             realm='atmos'
+             cell_methods='time: point';;
+
+  # --- Air temperature at 850 hPa   ---
+  ta850)     harm_name='ta850'
+             grib_lev=85000
+             st_name='air_temperature'
+             long_name='Air Temperature'
+             units='K'            
+             realm='atmos'
+             cell_methods='time: point';;
+
+  # --- Air temperature at 700 hPa   ---
+  ta700)     harm_name='ta700'
+             grib_lev=70000
+             st_name='air_temperature'
+             long_name='Air Temperature'
+             units='K'            
+             realm='atmos'
+             cell_methods='time: point';;
+
+  # --- Air temperature at 50m   ---
+  ta50m)     harm_name='ta50m'
+             st_name='air_temperature'
+             long_name='Air Temperature at 50m'
+             units='K'
+             realm='atmos'
+             cell_methods='time: point'
+             height=50;;
+
+  # --- 2-meter temperature ---
+  tas)      harm_name='tas'
+            st_name='air_temperature'
+            long_name='Near-Surface Air Temperature'
+            units=K
+            realm='atmos'
+            cell_methods='time: point'
+            height=2;;
+
+  # --- Daily maximum 2-m temperature  ---
+  tasmax)    harm_name='tasmax'
+             st_name='air_temperature'
+             long_name='Daily Maximum Near-Surface Air Temperature'
+             units=K
+             real='atmos'
+             cell_methods='time: maximum'
+             height=2;;
+
+  # --- Daily minimum 2-m temperature  --- 
+  tasmin)    harm_name='tasmin'
+             st_name='air_temperature'
+             long_name='Daily Minimum Near-Surface Air Temperature'
+             units=K
+             realm='atmos'
+             cell_methods='time: minimum'
+             height=2;;
+
+  # --- 2-meter temperature above green spaces---
+  tasgree)  harm_name='tascan_gd'
+            st_name='greenspaces_temperature'
+            long_name='Near-surface temperature green spaces'
+            units=K
+            realm='land'
+            area='Town'
+            cell_methods='time: point';; 
+
+  # --- 2-meter temperature above pavement---
+  taspav)   harm_name='tascan_rd'
+            st_name='pavement_temperature'
+            long_name='Near-surface temperature pavements'
+            units=K
+            realm='land'
+            area='Town'
+            cell_methods='time: point';; 
+
+  # --- 2-meter temperature Town (TEB)---
+  tastown)   harm_name='tas_town'
+             st_name='air_temperature'
+             long_name='Near-Surface Air Temperature'
+             units=K
+             realm='land'
+             area='Town'
+             cell_methods='time: point'
+             height=2;;
+
+  # --- Near Surface temperature in urban canyon   ---
+  tascan)   harm_name='tascan'
+            st_name='temperature_canyon'
+            long_name='Near-Surface temperature within canyon'
+            units='K'
+            cell_methods='time: point'
+            realm='land'
+            area='Town'
+            height=2;;
+
+  # --- 2-meter temperature  Water ---
+  taswater)    harm_name='tas_water'
+             st_name='air_temperature'
+             long_name='Near-Surface Air Temperature'
+             units=K
+             realm='land'
+             area='Water'
+             cell_methods='time: point'
+             height=2;;
+
+  # --- Surface Temperature (land+water)  ---
+  ts)        harm_name=ts
+             st_name='surface_temperature'
+             long_name='Surface Temperature'
+             units=K
+             realm='land'
+             cell_methods='time: point';;
+
+  # --- Soil temperature  ---
+  tsl)       harm_name=tsl
+             st_name='soil_temperature'
+             long_name='Temperature of Soil'
+             units=K
+             realm='land'
+             cell_methods='time: point';;
+
+  # --- Surface Temperature (green areas)  ---
+  tsgree )   harm_name=tsgree
+             st_name='greenspaces_surface_temperature'
+             long_name='Surface temperature green spaces'
+             units=K
+             area='Town'
+             realm='land'
+             cell_methods='time: point';;
+
+  # --- Surface Temperature (pavement)  ---
+  tspav )    harm_name=tspav
+             st_name='pavement_surface_temperature'
+             long_name='Surface temperature pavements'
+             units=K
+             area='Town'
+             realm='land'
+             cell_methods='time: point';;
+
+  # --- Surface Temperature (roof)  ---
+  tsroof )   harm_name=tsroof
+             st_name='roof_surface_temperature'
+             long_name='Surface temperature roof'
+             units=K
+             area='Town'
+             realm='land'
+             cell_methods='time: point';;
+
+  # --- Surface Temperature (urban)  ---
+  tsskin)    harm_name=tsskin
+             st_name='skin_temperature'
+             long_name='Skin temperature'
+             units=K
+             area='Town'
+             realm='land'
+             cell_methods='time: point';;
+
+  # --- Surface Temperature (water)  ---
+  tswater)   harm_name=ts_water
+             st_name='surface_temperature'
+             long_name='Surface temperature'
+             units=K
+             area='Water'
+             realm='land'
+             cell_methods='time: point';;
+
+  # --- Zonal wind at 1000 hPa | u1000 - U-component of wind ---
+  ua1000)    harm_name=ua1000
+             st_name='eastward_wind'
+             long_name='Eastward Wind'
+             units='m s-1'
+             realm='atmos'
+             cell_methods='time: point';;
+
+  # --- Zonal wind at 925 hPa | u925 - U-component of wind ---
+  ua925)    harm_name=ua925
+            st_name='eastward_wind'
+            long_name='Eastward Wind'
+            units='m s-1'
+            realm='atmos'
+            cell_methods='time: point';;
+ 
+  # --- Zonal wind at 850 hPa | u850 - U-component of wind ---
+  ua850)     harm_name=ua850
+             st_name='eastward_wind'
+             long_name='Eastward Wind'
+             units='m s-1'
+             realm='atmos'
+             cell_methods='time: point';;
+
+  # --- Zonal wind at 700 hPa | u700 - U-component of wind ---
+  ua700)    harm_name=ua700
+            st_name='eastward_wind'
+            long_name='Eastward Wind'
+            units='m s-1'
+            realm='atmos'
+            cell_methods='time: point';;
+
+  # --- Eastward wind at 50m   ---
+  ua50m)     harm_name='ua50m'
+             st_name='eastward_wind'
+             long_name='Eastward Wind at 50m'
+             units='m s-1'
+             realm='atmos'
+             cell_methods='time: point'
+             height=50;;
+
+  # --- Eastward Near-Surface Wind - U-component of wind ---
+  uas)      harm_name=uas
+            st_name='eastward_wind'
+            long_name='Eastward Near-Surface Wind'
+            units='m s-1'
+            realm='atmos'
+            height=10
+            cell_methods='time: point';;
+
+  # --- Meridional wind at 1000 hPa | v1000 - V-component of wind ---
+  va1000)   harm_name=va1000
+            st_name='northward_wind'
+            long_name='Northward Wind'
+            units='m s-1'     
+            realm='atmos'
+            cell_methods='time: point';;
+
+  # --- Meridional wind at 925 hPa | v925 - V-component of wind ---
+  va925)    harm_name=va925
+            st_name='northward_wind'
+            long_name='Northward Wind'
+            units='m s-1'
+            realm='atmos'
+            cell_methods='time: point';;
+
+  # --- Meridional wind at 850 hPa | v850 - V-component of wind ---
+  va850)    harm_name=va850
+            st_name='northward_wind'
+            long_name='Northward Wind'
+            units='m s-1'
+            realm='atmos'
+            cell_methods='time: point';;
+
+  # --- Meridional wind at 700 hPa | v700 - V-component of wind ---
+  va700)    harm_name=va700
+            st_name='northward_wind'
+            long_name='Northward Wind'
+            units='m s-1'
+            realm='atmos'
+            cell_methods='time: point';;
+
+  # --- Northward wind at 50m   ---
+  va50m)     harm_name='va50m'
+             st_name='northward_wind'
+             long_name='Northward Wind at 50m'
+             units='m s-1'
+             realm='atmos'
+             cell_methods='time: point'
+             height=50;;
+
+  # --- Northward Near-Surface Wind - V-component of wind ---
+  vas)      harm_name=vas
+            st_name='northward_wind'
+            long_name='Northward Near-Surface Wind'
+            units='m s-1'
+            height=10
+            realm='atmos'
+            cell_methods='time: point';;
+
+  # --- Surface Roughness Length ---
+  z0)       harm_name='z0'
+            st_name='surface_roughness'
+            long_name='Surface Roughness Length'
+            units=m
+            realm='land'
+            cell_methods='time: point';;
+
+  # --- Geoptiential height at 1000 hPa | zg1000  ---
+  # --- Reading gepontial at the moment and divide by g in script
+  zg1000)   harm_name=zg1000
+            st_name='geopotential_height'
+            long_name='Geopotential Height'
+            units='m'
+            realm='atmos'
+            cell_methods='time: point';;
+
+  # --- Geoptiential height at 925 hPa | zg925  ---
+  # --- Reading gepontial at the moment and divide by g in script
+  zg925)    harm_name=zg925
+            st_name='geopotential_height'
+            long_name='Geopotential Height'
+            units='m'        
+            realm='atmos'
+            cell_methods='time: point';;
+
+  # --- Geoptiential height at 850 hPa | zg850  ---
+  # --- Reading gepontial at the moment and divide by g in script
+  zg850)    harm_name=zg850
+            st_name='geopotential_height'
+            long_name='Geopotential Height'
+            units='m'            
+            realm='atmos'
+            cell_methods='time: point';;
+
+  # --- Geoptiential height at 700 hPa | zg700  ---
+  # --- Reading gepontial at the moment and divide by g in script
+  zg700)    harm_name=zg700
+            st_name='geopotential_height'
+            long_name='Geopotential Height'
+            units='m'
+            realm='atmos'
+            cell_methods='time: point';;
+
+  # --- Height of Boundary Layer  ---
+  zmla)     harm_name='zmla'
+            st_name='atmosphere_boundary_layer_thickness'
+            long_name='Height of Boundary Layer'
+            units='m'
+            realm='atmos'
+            cell_methods='time: point';;
+
+  *)        echo ...   no variable   '"'${var_in[$var]}'"'  in  $file_var
+            echo ...   TERMINATED
+            exit;;
+
+esac

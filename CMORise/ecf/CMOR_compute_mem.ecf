@@ -1,0 +1,31 @@
+%include <ksh.h>
+%include <submit_%CMOR_FREQ%_mem.h>
+%include <head.h>
+
+LOG_FILE=%ECF_OUT%/CMOR_%CMOR_EXP%/CMOR_%CMOR_FREQ%/CMOR_compute_%CMOR_CASE%.%ECF_TRYNO%
+now=$(date)
+
+echo ' -------------------------------------------------------------------------' >> $LOG_FILE
+echo  $now                                                                        >> $LOG_FILE
+echo ' CMORise %CMOR_FREQ%-%CMOR_CASE% : start'                                   >> $LOG_FILE
+echo ' '                                                                          >> $LOG_FILE
+
+echo ' CMOR VARIABLES  : ' %CMOR_VAR_LIST%                                        >> $LOG_FILE
+
+echo ' '                                                                          >> $LOG_FILE
+echo ' * Create temporary script:'                                                >> $LOG_FILE
+echo ' '                                                                          >> $LOG_FILE
+
+mkdir -p %ECF_OUT%/CMOR_%CMOR_EXP%/CMOR_%CMOR_FREQ%
+python3 %HOST_DIR%/scripts/create_ecflow_script.py %HOST_DIR% %CMOR_FREQ% %CMOR_CASE% %CMOR_EXP% %CMOR_VAR_LIST%
+
+echo ' '                                                                          >> $LOG_FILE
+echo ' * Run temporary script:'                                                   >> $LOG_FILE
+echo ' '                                                                          >> $LOG_FILE
+
+source %ECF_OUT%/CMOR_%CMOR_EXP%/CMOR_%CMOR_FREQ%/%CMOR_EXP%_%CMOR_FREQ%_%CMOR_CASE%.sh               >> $LOG_FILE
+
+echo ' CMORise %CMOR_FREQ%-%CMOR_CASE% : complete'                                >> $LOG_FILE
+echo ' '                                                                          >> $LOG_FILE
+
+%include <tail.h>
