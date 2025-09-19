@@ -1,7 +1,10 @@
+"""tsl.py: Aggregate all the soil temperature in a single file."""
+
 import numpy as np
 import sys
 import os
 import glob
+import subprocess
 from netCDF4 import Dataset
 
 
@@ -24,12 +27,11 @@ for file in sorted(glob.glob(indir+'tsl_L*')):
 
         file_new = file.replace('tsl_L01','tsl')
 
-        command = 'rm -rf '+file_new
-        os.system(command)
+        subprocess.run(['rm','-rf',f'{file_new}'])
+        subprocess.run(['cp','-r',f'{file}',f'{file_new}'])
 
-        command = 'cp -r '+file+' '+file_new
-        os.system(command)
         tsl = np.zeros((data.shape[0],14,data.shape[1],data.shape[2]))
+
     tsl[:,lev,:,:] = data
     lev +=1
 

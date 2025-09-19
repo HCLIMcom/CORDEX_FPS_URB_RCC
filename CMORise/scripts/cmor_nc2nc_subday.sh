@@ -184,11 +184,17 @@ for ((run=0;run<=num_run-1;run++)); do
 
                         case ${var_in[$var]} in
 
-                            z0 | tastown | taswater | anthroheat | ts \
+                            z0 | tastown | taswater | ts \
                                | tsskin | tspav | tsroof | tsgree | tswater )
                             
                                 file_in=$path_in$yy'/'${mm_s[$mm]}'/01/00/'$harm_name'_sfx_'$domain_hclim'_'$exp_name'_1hr_'$yy${mm_s[$mm]}'010000-'$yynext${mm_s[$mm+1]}'010000.nc';;
-                            
+
+			    anthroheat )
+
+				python3 $DIRECTORY_PYTHON/anthroheat.py $path_in$yy'/'${mm_s[$mm]}'/01/00/'
+
+                                file_in=$path_in$yy'/'${mm_s[$mm]}'/01/00/'$harm_name'_corrected_sfx_'$domain_hclim'_'$exp_name'_1hr_'$yy${mm_s[$mm]}'010000-'$yynext${mm_s[$mm+1]}'010000.nc';;
+				
                             taspav | tasgree | tascan | hurscan | husscan | sfcWindcan )
 
                                 python3 $DIRECTORY_PYTHON/building_height.py $path_in$yy'/'${mm_s[$mm]}'/01/00/'$harm_name'_sfx_'$domain_hclim'_'$exp_name'_1hr_'$yy${mm_s[$mm]}'010000-'$yynext${mm_s[$mm+1]}'010000.nc' $path_meta/${domain_hclim}_covers.nc

@@ -1,3 +1,5 @@
+"""building_height.py: Compute the average canyon height."""
+
 import numpy as np
 import sys
 import subprocess
@@ -5,10 +7,8 @@ import glob
 import os
 from netCDF4 import Dataset
 
-
 infile = sys.argv[1]
 cover_file = sys.argv[2]
-
 
 # Check if file exists
 if not os.path.exists(infile):

@@ -1,7 +1,10 @@
+"""mrsofc.py: Compute the total field capacity."""
+
 import numpy as np
 import sys
 import os
 import glob
+import subprocess
 from netCDF4 import Dataset
 
 
@@ -31,11 +34,9 @@ for lev in range(14):
 
             file_new = file.replace('wfc_L01','mrsofc')
 
-            command = 'rm -rf '+file_new
-            os.system(command)
+            subprocess.run(['rm','-rf',f'{file_new}'])
+            subprocess.run(['cp','-r',f'{file}',f'{file_new}'])
 
-            command = 'cp -r '+file+' '+file_new
-            os.system(command)
             mrsofc = np.zeros((data.shape[0],data.shape[1]))
 
         mrsofc[:,:] = mrsofc[:,:] + 1000*data*(levels[lev+1,:,:] - levels[lev,:,:])
