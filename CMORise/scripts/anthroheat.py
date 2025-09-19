@@ -29,9 +29,6 @@ input_directory_past_split[-4] = str(month_past).zfill(2)
 
 input_directory_past = '/'.join(input_directory_past_split)
 
-print(input_directory)
-print(input_directory_past)
-
 if os.path.isdir(input_directory_past):
     for file in sorted(glob.glob(f'{input_directory_past}anthroheat_sfx*')):
         f = Dataset(file,'r')
