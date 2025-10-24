@@ -93,6 +93,7 @@ CMOR_launch()
         echo '------------'
 
 	# Initialise and launch suites
+        ecf_port=${ECF_PORT-3141}
 	cd suites
 
 	# Get list of possible suites
@@ -112,8 +113,36 @@ CMOR_launch()
 
 		   echo "    ... Uploading $ecflow_suite to ecFlow and starting it ..."
 		
-		   ecflow_client --load=$ecflow_suite --host=ecflow-gen-$USER-001 --port=3141
-		   ecflow_client --begin=${ecflow_suite%.def} --host=ecflow-gen-$USER-001 --port=3141
+                   ecf_host_list="ecflow-gen-$USER-001 ecfg-$USER-1"
+                   if [ "no$ECF_HOST" = "no" ]; then
+                      printf " Selecting ECF_HOST ... "
+                      nfound=0
+                      for ecf_host in $ecf_host_list; do
+                         if ping -c1 -W1 $ecf_host &> /dev/null; then
+                            printf "found $ecf_host ... "
+                            ECF_HOST=$ecf_host
+                            ((nfound+=1))
+                         fi
+                      done
+                     if [ $nfound -ne 1 ]; then
+                        echo "expected 1 ecFlow host, but found $nfound, EXIT"
+                        exit 1
+                     fi
+                     echo "OK"
+                   fi
+
+                   if suitestate=$(ecflow_client --query state /${ecflow_suite%.def} --host=$ECF_HOST --port=$ecf_port 2> /dev/null); then
+                     # Suite with this name exists on the server
+                     if [ "$suitestate" = "active" ]; then
+                       echo "Suite $ecflow_suite is already active, abort"
+                       exit 1
+                     else
+		       ecflow_client --replace=${ecflow_suite%.def} $ecflow_suite --host=$ECF_HOST --port=$ecf_port
+                     fi
+                   else
+		     ecflow_client --load=$ecflow_suite --host=$ECF_HOST --port=$ecf_port
+                   fi
+		   ecflow_client --begin=${ecflow_suite%.def} --host=$ECF_HOST --port=$ecf_port
 
     		else
 		   echo "    ... Skipping ..."
