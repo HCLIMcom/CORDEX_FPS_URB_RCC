@@ -26,7 +26,7 @@ for experiment in namelist['experiment']:
         suite_file.write('\tedit ECF_JOB_CMD ssh -o \'StrictHostKeyChecking=no\' hpc-batch \'ecsbatch %ECF_JOB% 1> %ECF_JOBOUT% 2>&1 &\'\n')
         suite_file.write('\tedit ECF_TRIES 1\n')
         suite_file.write(f'\tedit CMOR_EXP "{experiment}"\n\n')
-        suite_file.write(f'\tlimit numCMOR {namelist['ecflow_settings']['maximum_number_simultaneous_tasks']}\n\n')
+        suite_file.write(f'\tlimit numCMOR {namelist["ecflow_settings"]["maximum_number_simultaneous_tasks"]}\n\n')
 
         # Write family and task blocks
         last_frequency = None

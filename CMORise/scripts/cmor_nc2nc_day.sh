@@ -17,6 +17,7 @@ echo ---------------------------------------------------------------------------
 echo
 
 # --- load Modules ---
+module load python3
 module load cdo/1.9.8
 module load nco
 module load netcdf4/4.9.3
@@ -512,6 +513,7 @@ for ((run=0;run<=num_run-1;run++)); do
 		        -a source_type,global,o,c,"$source_type" \
 		        -a version_realization,global,o,c,"$experiment_version" \
 		        -a variable_id,global,o,c,"${var_in[$var]}" \
+                        -a tracking_id,global,o,c,"$(python3 $DIRECTORY_PYTHON/get_uuid.py)" \
 		        -a license,global,o,c,"https://cordex.org/data-access/cordex-cmip6-data/cordex-cmip6-terms-of-use" \
 		        -a comment,global,o,c,"$comment" -h $file_out
 

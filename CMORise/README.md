@@ -11,7 +11,7 @@ CMORisation scripts for URB-RCC simulations. The variable naming convention is t
 1 - Load the needed modules to run ecFlow and the CMOR scripts.
 ```
 module load ecflow
-module load python
+module load python3
 ```
 
 2 - Modify the namelist files in the **config** folder accordingly. More info about the namelist files can be found [here](docs/config.md).
