@@ -10,6 +10,8 @@ experiment:
   - HCLIM46_AROME_ECMWF_ERA5_PARIS2.5_EVAL 
   - HCLIM46_ALADIN_ECMWF_ERA5_EUR12_EXT
   - HCLIM46_AROME_ECMWF_ERA5_PARIS2.5_EXT
+  - HCLIM46_CXURB_PARIS2p5_AROMEfRACMOfERA5
+  - HCLIM46_CXURB_PARIS2p5_Y2023_AROMEfRACMOfERA5
 
 # List of different tasks with their corresponding variables and frequencies to cmorize
 # If memory is true, the SBATCH script will use the memory assign  in ecflow_submit block (further down)
