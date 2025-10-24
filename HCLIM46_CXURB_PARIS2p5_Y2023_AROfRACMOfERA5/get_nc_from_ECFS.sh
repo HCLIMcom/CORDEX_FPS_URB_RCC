@@ -25,7 +25,21 @@ vars_fx=" \
   orog_clim_PARIS2.5_${EXP}_fx.nc \
   sftnf_clim_PARIS2.5_${EXP}_fx.nc \
   sfturf_clim_PARIS2.5_${EXP}_fx.nc \
-  sftlaf_clim_PARIS2.5_${EXP}_fx.nc"
+  sftlaf_clim_PARIS2.5_${EXP}_fx.nc \
+  wfc_L01_clim_PARIS2.5_${EXP}_fx.nc \
+  wfc_L02_clim_PARIS2.5_${EXP}_fx.nc \
+  wfc_L03_clim_PARIS2.5_${EXP}_fx.nc \
+  wfc_L04_clim_PARIS2.5_${EXP}_fx.nc \
+  wfc_L05_clim_PARIS2.5_${EXP}_fx.nc \
+  wfc_L06_clim_PARIS2.5_${EXP}_fx.nc \
+  wfc_L07_clim_PARIS2.5_${EXP}_fx.nc \
+  wfc_L08_clim_PARIS2.5_${EXP}_fx.nc \
+  wfc_L09_clim_PARIS2.5_${EXP}_fx.nc \
+  wfc_L10_clim_PARIS2.5_${EXP}_fx.nc \
+  wfc_L11_clim_PARIS2.5_${EXP}_fx.nc \
+  wfc_L12_clim_PARIS2.5_${EXP}_fx.nc \
+  wfc_L13_clim_PARIS2.5_${EXP}_fx.nc \
+  wfc_L14_clim_PARIS2.5_${EXP}_fx.nc"
 
 vars=" \
   tas_fp_PARIS2.5_${EXP}_1hr_{dtg1}00-{dtg2}00.nc \
@@ -34,6 +48,9 @@ vars=" \
   pr_fp_PARIS2.5_${EXP}_1hr_{dtg1}00-{dtg2}00.nc \
   pr_fp_PARIS2.5_${EXP}_day_{dtg1}00-{dtg2}00.nc \
   pr_fp_PARIS2.5_${EXP}_mon_{dtg1}00-{dtg2}00.nc \
+  prsn_fp_PARIS2.5_${EXP}_1hr_{dtg1}00-{dtg2}00.nc \
+  prsn_fp_PARIS2.5_${EXP}_day_{dtg1}00-{dtg2}00.nc \
+  prsn_fp_PARIS2.5_${EXP}_mon_{dtg1}00-{dtg2}00.nc \
   evspsbl_fp_PARIS2.5_${EXP}_1hr_{dtg1}00-{dtg2}00.nc \
   evspsbl_fp_PARIS2.5_${EXP}_day_{dtg1}00-{dtg2}00.nc \
   evspsbl_fp_PARIS2.5_${EXP}_mon_{dtg1}00-{dtg2}00.nc \
@@ -94,6 +111,7 @@ vars=" \
   taspav_sfx_PARIS2.5_${EXP}_1hr_{dtg1}00-{dtg2}00.nc \
   tasgree_sfx_PARIS2.5_${EXP}_1hr_{dtg1}00-{dtg2}00.nc \
   tas_water_sfx_PARIS2.5_${EXP}_1hr_{dtg1}00-{dtg2}00.nc \
+  tas_town_sfx_PARIS2.5_${EXP}_1hr_{dtg1}00-{dtg2}00.nc \
   anthroheat_sfx_PARIS2.5_${EXP}_1hr_{dtg1}00-{dtg2}00.nc \
   tsskin_sfx_PARIS2.5_${EXP}_1hr_{dtg1}00-{dtg2}00.nc \
   tspav_sfx_PARIS2.5_${EXP}_1hr_{dtg1}00-{dtg2}00.nc \
