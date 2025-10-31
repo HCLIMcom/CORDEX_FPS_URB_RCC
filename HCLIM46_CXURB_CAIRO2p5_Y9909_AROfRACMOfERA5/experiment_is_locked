@@ -1,0 +1,14 @@
+Remove this file to sync your experiment with /perm/nkl/git/github/Hirlam/HCLIM/HCLIM46_develop
+
+Status of /perm/nkl/git/github/Hirlam/HCLIM/HCLIM46_develop:
+
+commit 1fad86152e83956740f33ecd456305eb4937d227
+Author: Oskar Landgren <oskar.landgren@met.no>
+Date:   Thu Oct 23 16:54:57 2025 +0200
+
+    Transient aerosols for cy46 (Hirlam/HCLIM#202)
+    
+    * Transient aerosols for cy46.
+    * aerosol choices section in documentation: Expanded the section on aerosol choices to include details about the 'transientaod' option and its implications for transient climate response. Updated the USEAERO options to reflect the new aerosol usage options.
+    * Correcting path to Const.Clim, and setting set -e.
+    * Setting INT_BDFILE000 and is_coldstart properly.

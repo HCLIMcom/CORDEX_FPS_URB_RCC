@@ -1,0 +1,1460 @@
+#!/bin/bash
+#==================================================================================================
+# convert Fa files to GRIB or netcdf according to CF1.4
+#==================================================================================================
+# Tasks:
+#--------------------------------------------------------------------------------------------------
+# - prepare namelist for gl
+# - convert FA to grib/netcdf with gl
+# - copy files to RCAT directory
+# - move converted files to archive directory
+#
+#--------------------------------------------------------------------------------------------------
+# Usage: convertFA [1 or more elements of $t_all]
+#--------------------------------------------------------------------------------------------------
+# - if one or more of the optional arguments is given, only those type will be converted
+#
+# - heavily tuned for CORDEX-style output
+#==================================================================================================
+
+echo "$0 ${@}: started ($(date +'%Y-%m-%d %H:%M:%S'))"
+
+. header.sh
+
+#--------------------------------------------------------------------------------------------------
+# Error handling
+#--------------------------------------------------------------------------------------------------
+errarr=()
+function set_err
+{
+    # append passed string to error array and echo it
+    errarr+=("${1:-"Unknown Error"}")
+    echo ${errarr[@]: -1}
+}
+function show_errs
+{
+    # check for errors and print them, then exit if any
+    nerrs=${#errarr[@]}
+    if [ $nerrs -ne 0 ] ; then
+        echo "${0}: terminated with $nerrs error$([ $nerrs -gt 1 ] && echo "s"):"
+        for errstr in "${errarr[@]}" ; do
+            echo "- $errstr"
+        done
+        exit 1
+    fi
+}
+function show_usage
+{
+    # show usage and exit
+    options=$(IFS='|' ; echo "${t_all[*]}")
+    echo "Usage: ${0} [$options]"
+    exit 1
+}
+
+
+#--------------------------------------------------------------------------------------------------
+# Other functions
+#--------------------------------------------------------------------------------------------------
+function insertfstart()
+{
+    # insert fstart for known min/max fields
+    local FF=$1
+    local MG=$1
+    local innam=$2
+    local outnam=$3
+    local fstart=-1
+    local fstartg=-1
+    
+    if [ $# -ne 3 ] ; then
+        set_err "Incorrect number of arguments supplied to insertfstart, expected 3, got $#"
+        return 1
+    fi
+    
+    if [ "$TFLAG" = "min" ] ; then
+        FF=$(( FF * TSTEP / ( 60 * TIME_SCALE ) ))
+        FR=$(( FREQ_RESET_TEMP * 60 / TIME_SCALE ))
+        [[ $FR -eq 0 ]] && FR=1
+        fstart=$(( ( ( 10#$FF - 1 ) / FR ) * FR ))
+        
+        if [ $FREQ_RESET_GUST -gt 0 ] ; then
+            FR=$( perl -S Output_freq.pl GUSTPERIOD $MG )
+            FR=$(( FR * TSTEP / ( 60 * TIME_SCALE ) ))
+        else
+            echo "Erroneous value for FREQ_RESET_GUST:$FREQ_RESET_GUST"
+            exit 1
+        fi
+        [[ $FR -eq 0 ]] && FR=1
+        fstartg=$(( ( ( 10#$FF - 1 ) / FR ) * FR ))
+    else
+        fstart=$(( ( ( 10#$FF - 1 ) / FREQ_RESET_TEMP ) * FREQ_RESET_TEMP ))
+    
+        if [ $FREQ_RESET_GUST -eq -1 ] ; then
+            fstartg=$(( ( ( 10#$FF - 1 ) / FREQ_RESET_TEMP ) * FREQ_RESET_TEMP ))
+        elif [ $FREQ_RESET_GUST -gt 0 ] ; then
+            FR=$( perl -S Output_freq.pl GUSTPERIOD $FF )
+            [[ $FR -eq 0 ]] && FR=1
+            fstartg=$(( ( ( 10#$FF - 1 ) / FR ) * FR ))
+        else
+            set_err "Erroneous value for FREQ_RESET_GUST: $FREQ_RESET_GUST"
+            return 1
+        fi
+    fi
+    
+    [[ $fstart -lt 0 ]] && fstart=0
+    [[ $fstartg -lt 0 ]] && fstartg=0
+    
+    # replace, will not fail if text to be replaced is not found
+    fstart_str="fstart(15) = $fstart, fstart(16) = $fstart, fstart(154) = $fstartg, fstart(162) = $fstartg, fstart(163) = $fstartg, fstart(228) = $fstartg,"
+    sed "s/insertfstarthere/$fstart_str/g; s/insertFFhere/$FF/g" $innam > $outnam || \
+        set_err "Inserting fstart in $innam and writing to $outnam failed"
+}
+
+function insertF0nFF()
+{
+    # function to insert F0 and FF in the namelist
+    local F0=$1
+    local FF=$2
+    
+    local innam=$3
+    local outnam=$4
+    
+    if [ "$TFLAG" = "min" ]; then
+        F0=$(( F0 * TSTEP / ( 60 * TIME_SCALE ) ))
+        FF=$(( FF * TSTEP / ( 60 * TIME_SCALE ) ))
+    fi
+    
+    if [ $# -ne 4 ] ; then
+        set_err "Incorrect number of arguments supplied to insertF0nFF, expected 4, got $#"
+        return 1
+    fi
+    
+    # replace, will not fail if text to be replaced is not found
+    sed "s/insertF0here/$F0/g; s/insertFFhere/$FF/g" $innam > $outnam || \
+        set_err "Inserting F0/FF in $innam and writing to $outnam failed"
+}
+
+function ifreq2cfreq()
+{
+    # Derive frequency string based on ifreq (in hours/model steps)
+    local ifrq=$1
+    local cfrq=unknown_cfreq
+    
+    # Get hh:mm:ss
+    IFS=':' read -r hh mm ss <<< $(export NTIMEFMT=2; hm_time_stamp $ifrq fa)
+    
+    if [ $ss -eq 0 -a $mm -eq 0 ] ; then
+        if [ $hh -eq 24 ]; then
+            cfrq=day
+        else
+            cfrq=$(( 10#$hh ))hr
+        fi
+    elif [ $ss -eq 0 ] ; then
+        cfrq=$(( 10#$hh*60 + 10#$mm ))min
+    else
+        cfrq=$(( 10#$hh*3660 + 10#$mm*60 + 10#$ss ))s
+    fi
+    
+    echo $cfrq
+}
+
+
+#--------------------------------------------------------------------------------------------------
+# Prepare
+#--------------------------------------------------------------------------------------------------
+# create working directory
+cd $WRK
+WDIR=`hostname`$$
+Workdir $WDIR
+
+trap "Trapbody $WDIR ; exit 1" 0
+
+# define acceptable arguments (conversion types), corresponding to namelists and conversion blocks in the script
+t_all=( surfex surfex_6h surfex_day surfex_acc_6h surfex_acc_day surfex_acc_mon fullpos_vint fullpos fullpos_6h fullpos_gust fullpos_tasminmax fullpos_acc fullpos_acc_pp fullpos_acc_day fullpos_acc_day_pp fullpos_acc_mon fullpos_acc_mon_pp climate )
+
+# decide what to do, by default convert all types
+if [ "$#" -eq 0 ] ; then
+    t_sel=( ${t_all[@]} )
+else
+    t_sel=()
+    for arg in "$@" ; do
+        if [[ " ${t_all[@]} " =~ " $arg " ]] ; then
+            t_sel+=( $arg )
+        else
+            set_err "Unknown argument: $arg"
+            show_usage
+        fi
+    done
+fi
+
+# Set TFLAG-related properties
+if [ $TFLAG = "min" ] ; then
+    stepunits=m
+    TIME_SCALE=1
+else
+    stepunits=h
+fi
+ifreq1h=$(htoostep 1)
+ifreq6h=$(htoostep 6)
+ifreqday=$(htoostep 24)
+ifreq_reset_gust=$(htoostep $FREQ_RESET_GUST)
+ifreq_reset_temp=$(htoostep $FREQ_RESET_TEMP)
+
+# GRIB or netCDF
+# -p cuts off the extension zone
+# (For use of netcdf4, see https://hirlam.org/trac/wiki/HarmonieClimate/HCLIM_output#Knownissues)
+if [ "$ARCHIVE_FORMAT" = "nc" ] ; then
+    glflag="-nc -p"
+    fileext=".nc"
+    glof="NETCDF"
+    ikindnc=3                          # netcdf type created by gl (3 | 4), nc4 smaller, but very slow
+    nc3to4=yes                         # convert to netcdf4 afterwards with nccopy, more efficient
+    [ $ikindnc -eq 4 ] && nc3to4=no
+    nameflag=""                        # Use climate variable names or nwp/FA names (-ufn)
+    [ "$NCNAMES" = "nwp" ] && nameflag="-ufn"
+    uvRelativeToGrid=0                 # u-v components (wind, gust momentum flux) relative to geographical grid
+else
+    glflag="-c -p"
+    fileext=".grib"
+    glof="GRIB"
+    ikindnc=-1
+    nc3to4=no
+    uvRelativeToGrid=1                 # u-v components (wind, gust momentum flux) relative to model grid
+fi
+
+# derive end date of this month, used in file naming
+enddtg=$(mandtg $DTG + $LL)
+
+# get output lists and try to guess frequency assuming regular intervals, and at least 2 output steps
+OUTLIST=( $( perl -S Output_freq.pl OUTLIST ) )
+SFXSLIST=( $( perl -S Output_freq.pl SFXSLIST ) )
+FPOUTLIST=( $( perl -S Output_freq.pl POSTLIST ) )
+outfreq=$(( ${OUTLIST[1]} - ${OUTLIST[0]} ))
+sfxsfreq=$(( ${SFXSLIST[1]} - ${SFXSLIST[0]} ))
+fpoutfreq=$(( ${FPOUTLIST[1]} - ${FPOUTLIST[0]} ))
+echo "Output steps"
+echo "OUTLIST: ${OUTLIST[*]}"
+echo "SFXSLIST: ${SFXSLIST[*]}"
+echo "FPOUTLIST: ${FPOUTLIST[*]}"
+
+# separator in file names
+csep="_"
+
+# CAPE/CIN definition used in gl postprocessing: 0/1 [harmonie/ECMWF]
+cape_version=1
+
+# derive host model attribute, perhaps this should be set in config_exp.h. instead
+if [ "$HOST_MODEL" == "racmo" ] ; then
+    chostmod="RACMO23"
+elif [ "$HOST_MODEL" == "ifs" -a "$BDSTRATEGY" == "era" ] ; then
+    chostmod="ERA-Interim"
+elif [ "$HOST_MODEL" == "ifs" -a "$BDSTRATEGY" == "era5" ] ; then
+    chostmod="ERA5"
+elif [ "$HOST_MODEL" == "ald" -a "$BDSTRATEGY" == "same_forecast" ]; then
+    chostmod="ALADIN"
+elif [ "$HOST_MODEL" == "ala" -a "$BDSTRATEGY" == "same_forecast" ]; then
+    chostmod="ALARO"
+elif [ "$HOST_MODEL" == "aro" -a "$BDSTRATEGY" == "same_forecast" ]; then
+    chostmod="AROME"
+else
+    set_err "Don't know how to derive hostmodel attribute from HOST_MODEL ($HOST_MODEL) and BDSTRATEGY ($BDSTRATEGY) variables"
+fi
+
+# define common part of namelist, valid for all files and fields, add new lines for readability
+nl=$'\n'
+nam_common="&naminterp$nl\
+  output_format    = '$glof',$nl\
+  ikindnc          = $ikindnc,$nl\
+  ref_date         = ${DTGBEG:0:8},$nl\
+  ref_hour         = ${DTGBEG:8:2},$nl\
+  stepunits        = '$stepunits',$nl\
+  outkey%date      = $YMD,$nl\
+  outkey%time      = $HH,$nl\
+  cdatefname       = '${DTG}00-${enddtg}00',$nl\
+  csep             = '$csep',$nl\
+  cdomain          = '$DOMAIN',$nl\
+  cexperiment      = '$EXP',$nl\
+  cinstitute       = '${INSTITUTE-HCLIMcom}',$nl\
+  chostmod         = '$chostmod',$nl\
+  chm_rev          = '$(basename $HM_REV)',$nl\
+  uvrelativetogrid = $uvRelativeToGrid,$nl\
+  lhistory         = .FALSE.,$nl\
+  printlev         = 0,"
+
+# print format for new conversion blocks
+prfmt="\n%s\n%s\n%s\n"
+lines="--------------------------------------------------------------------------------"
+
+
+#--------------------------------------------------------------------------------------------------
+# If any errors so far, don't continue with actual conversion, but show the errors and exit
+#--------------------------------------------------------------------------------------------------
+show_errs
+
+
+#--------------------------------------------------------------------------------------------------
+# Convert surfex files, non-accumulated fields, contents, but not frequency controlled via surfex_selected_output.pm
+#--------------------------------------------------------------------------------------------------
+t_this=surfex
+cfreq=$(ifreq2cfreq $sfxsfreq)
+if [[ " ${t_sel[@]} " =~ " $t_this " ]] && [ "$SURFEX_LSELECT" = "yes" ] ; then
+    printf "$prfmt" $lines "Converting surfex files, $cfreq instantaneous fields" $lines
+    
+    # construct strings with lev variables for namelists, top 3 levels only for hourly
+    levvars='"SFX.WGT{lev}_T_ISBA", "SFX.WGI{lev}_T_ISBA",'
+    lev_vars_list=""
+    for i in $(seq 1 3); do
+        lev_vars_list="$lev_vars_list${levvars//\{lev\}/$i} "
+    done
+    
+    # patch Variables
+    patchvars='"{patch}WG1", "{patch}TG1", "{patch}LAI",' #List of patch variables to be converted. Separated by spaces and without 'X00n' prefix
+    patch_vars_list=""
+    for i in $(seq 1 $NPATCH) ; do
+        patch_vars_list="$patch_vars_list${patchvars//\{patch\}/$(printf X%03d $i)} "
+    done
+    
+    # build namelist
+    def_nam=def_nam_$t_this
+    def_nam_tmp=${def_nam}_tmp
+    cat > $def_nam << EOF
+    $nam_common
+
+
+
+
+
+        readkey%faname              = "SFX.TS"            , "SFX.Z0"            , "SFX.Z0_TEB"        ,
+                                      "SFX.T2M_WAT"       , "SFX.TS_WATER"      ,
+                                      "SFX.T2M_TEB"       , "SFX.Q2M_TEB"       , "SFX.HU2M_TEB"      ,
+                                      "SFX.ZON10M_TEB"    , "SFX.MER10M_TEB"    ,
+                                      "SFX.TS_TOWN"       , "SFX.XQF_TOWN"      , 
+                                      "SFX.TROAD1"        , "SFX.TROOF1"        , "SFX.TSGARDEN"      ,
+                                      "SFX.T_CAN"         , "SFX.Q_CAN"         , "SFX.U_CAN"         , "SFX.HU_CAN"        ,
+                                      "SFX.T_RD_CAN"      , "SFX.T_GD_CAN"      , "SFX.Q_RD_CAN"      , "SFX.Q_GD_CAN"      ,
+                                      "SFX.UTCI_IN"       , "SFX.UTCI_OUTSUN"   , "SFX.UTCI_OUTSHAD"  , "SFX.UTCI_OUTAGG"   ,
+                                      ${lev_vars_list}
+                                      ${patch_vars_list}
+        user_nctrans(1:2)%full_name = "SFX.HU2M_TEB"      , "SFX.HU_CAN"        ,
+        user_nctrans(1:2)%unit      = "%"                 , "%"                 ,
+        lcheck_misval               = .TRUE.,
+        cfreq                       = "$cfreq",
+        cfiden                      = "sfx",
+        outkey%startstep            = insertF0here,
+        outkey%endstep              = insertFFhere,
+    /
+EOF
+    
+    # loop over output files for conversion
+    for MLL in ${SFXSLIST[@]} ; do
+        infile=$ARCHIVE/$(hm_file_name $MLL sfxs fa)
+        insertF0nFF $MLL $MLL $def_nam $def_nam_tmp
+        ${BINDIR}/gl $glflag $nameflag $infile -n $def_nam_tmp || \
+            set_err "Conversion of $infile to $ARCHIVE_FORMAT using $def_nam_tmp failed"
+    done
+fi
+
+t_this=surfex_6h
+ifreq=$ifreq6h
+[ $ifreq -lt $sfxsfreq ] && ifreq=$sfxsfreq
+cfreq=$(ifreq2cfreq $ifreq)
+if [[ " ${t_sel[@]} " =~ " $t_this " ]] && [ "$SURFEX_LSELECT" = "yes" ] ; then
+    printf "$prfmt" $lines "Converting surfex files, $cfreq instantaneous fields" $lines
+    
+    # construct strings with lev variables for namelists
+    levvars='"SFX.TG{lev}_ISBA", "SFX.WGT{lev}_T_ISBA", "SFX.WGI{lev}_T_ISBA",'
+    lev_vars_list=""
+    for i in $(seq 1 14); do
+        lev_vars_list="$lev_vars_list${levvars//\{lev\}/$i} "
+    done
+    
+    # build namelist
+    def_nam=def_nam_$t_this
+    def_nam_tmp=${def_nam}_tmp
+    cat > $def_nam << EOF
+    $nam_common
+        readkey%faname         = "SFX.WGTOT_T_ISBA"  , "SFX.WGI_T_ISBA"    ,
+                                 "SFX.TSWI_T_ISBA"   , "SFX.TSWI1_ISBA"    ,
+                                 "SFX.PSN_ISBA"      , "SFX.DSN_T_ISBA"    , "SFX.WSN_T_ISBA"    ,
+                                 $lev_vars_list
+        user_nctrans%full_name = "SFX.PSN_ISBA"      , "SFX.TG1_ISBA"      ,
+        user_nctrans%s_name    = ""                  , "soil_temperature"  ,
+        user_nctrans%l_name    = "Snow Area Percentage", "Temperature of Soil"
+        user_nctrans%unit      = "%"                 , "K", 
+        lcheck_misval          = .TRUE.,
+        cfreq                  = "$cfreq",
+        cfiden                 = "sfx",
+        outkey%startstep       = insertF0here,
+        outkey%endstep         = insertFFhere,
+    /
+EOF
+    
+    # loop over output files for conversion, converted matching hours
+    for MLL in ${SFXSLIST[@]} ; do
+        if [ $(($MLL%$ifreq)) -eq 0 ]; then
+            infile=$ARCHIVE/$(hm_file_name $MLL sfxs fa)
+            insertF0nFF $MLL $MLL $def_nam $def_nam_tmp
+            ${BINDIR}/gl $glflag $nameflag $infile -n $def_nam_tmp || \
+                set_err "Conversion of $infile to $ARCHIVE_FORMAT using $def_nam_tmp failed"
+        fi
+    done
+fi
+
+t_this=surfex_day
+ifreq=$ifreqday
+[ $ifreq -lt $sfxsfreq ] && ifreq=$sfxsfreq
+cfreq=$(ifreq2cfreq $ifreq)
+if [[ " ${t_sel[@]} " =~ " $t_this " ]] && [ "$SURFEX_LSELECT" = "yes" ] ; then
+    printf "$prfmt" $lines "Converting surfex files, $cfreq instantaneous fields" $lines
+    
+    # build namelist
+    def_nam=def_nam_$t_this
+    def_nam_tmp=${def_nam}_tmp
+    cat > $def_nam << EOF
+    $nam_common
+        readkey%faname         = "SFX.SST"           , "SFX.SIC"           ,
+        user_nctrans%full_name = "SFX.SIC"           ,
+        user_nctrans%l_name    = "Sea-Ice Area Percentage (Atmospheric Grid)",
+        user_nctrans%unit      = "%"                 ,
+        lcheck_misval          = .TRUE.,
+        cfreq                  = "$cfreq",
+        cfiden                 = "sfx",
+        outkey%startstep       = insertF0here,
+        outkey%endstep         = insertFFhere,
+    /
+EOF
+    
+    # loop over output files for conversion, converted matching hours
+    for MLL in ${SFXSLIST[@]} ; do
+        if [ $(($MLL%$ifreq)) -eq 0 ]; then
+            infile=$ARCHIVE/$(hm_file_name $MLL sfxs fa)
+            insertF0nFF $MLL $MLL $def_nam $def_nam_tmp
+            ${BINDIR}/gl $glflag $nameflag $infile -n $def_nam_tmp || \
+                set_err "Conversion of $infile to $ARCHIVE_FORMAT using $def_nam_tmp failed"
+        fi
+    done
+fi
+
+
+#--------------------------------------------------------------------------------------------------
+# Convert surfex files, accumulated fields, contents, but not frequency controlled via surfex_selected_output.pm
+#--------------------------------------------------------------------------------------------------
+t_this=surfex_acc_6h
+ifreq=$ifreq6h
+[ $ifreq -lt $sfxsfreq ] && ifreq=$sfxsfreq
+cfreq=$(ifreq2cfreq $ifreq)
+if [[ " ${t_sel[@]} " =~ " $t_this " ]] && [ "$SURFEX_LSELECT" = "yes" ] ; then
+    printf "$prfmt" $lines "Converting surfex files, $cfreq accumulated fields" $lines
+    
+    # build namelists
+    def_nam=def_nam_$t_this
+    def_nam_tmp=${def_nam}_tmp
+    cat > $def_nam << EOF
+    $nam_common
+        readkey%faname         = "SFX.RUNOFFC_ISBA"  , "SFX.DRAINC_ISBA"   ,
+                                 "SFX.EVAPC_ISBA"    , "SFX.SNOMLTC_ISBA"  ,
+        cfreq                  = "$cfreq",
+        cfiden                 = "sfx",
+        lacc2flux              = .TRUE.,
+        outkey%startstep       = insertF0here,
+        outkey%endstep         = insertFFhere,
+        ctimeis                = "middle",
+    /
+EOF
+    
+    # loop over output files for conversion, skip 0h file, it doesn't contain accumulated fields
+    lfirst=1
+    if [ ${SFXSLIST[0]} -eq 0 ]; then
+        unset SFXSLIST[0]
+    fi
+    for MLL in ${SFXSLIST[@]} ; do
+        if [ $(($MLL%$ifreq)) -eq 0 ]; then
+            infile=$ARCHIVE/$(hm_file_name $MLL sfxs fa)
+            if [ $lfirst -eq 1 ] ; then
+                # use gl, plain conversion
+                insertF0nFF 0 $MLL $def_nam $def_nam_tmp
+                ${BINDIR}/gl $glflag $nameflag $infile -n $def_nam_tmp || \
+                    set_err "Conversion of $infile to $ARCHIVE_FORMAT using $def_nam_tmp failed"
+            else
+                # use xtool to deaccumulate
+                insertF0nFF $MLL_prev $MLL $def_nam $def_nam_tmp
+                ${BINDIR}/xtool -f -p -f1 $infile -f2 $infile_prev -op DIFF -of $glof -n $def_nam_tmp || \
+                    set_err "Deaccumulation of ($infile-$infile_prev) to $ARCHIVE_FORMAT using $def_nam_tmp failed"
+            fi
+            
+            lfirst=0
+            MLL_prev=$MLL
+            infile_prev=$infile
+        fi
+    done
+fi
+
+t_this=surfex_acc_day
+ifreq=$ifreqday
+[ $ifreq -lt $sfxsfreq ] && ifreq=$sfxsfreq
+cfreq=$(ifreq2cfreq $ifreq)
+if [[ " ${t_sel[@]} " =~ " $t_this " ]] && [ "$SURFEX_LSELECT" = "yes" ] ; then
+    printf "$prfmt" $lines "Converting surfex files, $cfreq accumulated fields" $lines
+
+    # build namelists
+    def_nam=def_nam_$t_this
+    def_nam_tmp=${def_nam}_tmp
+    cat > $def_nam << EOF
+    $nam_common
+        readkey%faname         = "SFX.RUNOFFC_ISBA"  , "SFX.DRAINC_ISBA"   ,
+                                 "SFX.EVAPC_ISBA"    , "SFX.SNOMLTC_ISBA"  ,
+        cfreq                  = "$cfreq",
+        cfiden                 = "sfx",
+        lacc2flux              = .TRUE.,
+        outkey%startstep       = insertF0here,
+        outkey%endstep         = insertFFhere,
+        ctimeis                = "middle",
+    /
+EOF
+    
+    # loop over output files for conversion, skip 0h file, it doesn't contain accumulated fields
+    lfirst=1
+    if [ ${SFXSLIST[0]} -eq 0 ]; then
+        unset SFXSLIST[0]
+    fi
+    for MLL in ${SFXSLIST[@]} ; do
+        if [ $(($MLL%$ifreq)) -eq 0 ]; then
+            infile=$ARCHIVE/$(hm_file_name $MLL sfxs fa)
+            if [ $lfirst -eq 1 ] ; then
+                # use gl, plain conversion
+                insertF0nFF 0 $MLL $def_nam $def_nam_tmp
+                ${BINDIR}/gl $glflag $nameflag $infile -n $def_nam_tmp || \
+                    set_err "Conversion of $infile to $ARCHIVE_FORMAT using $def_nam_tmp failed"
+            else
+                # use xtool to deaccumulate
+                insertF0nFF $MLL_prev $MLL $def_nam $def_nam_tmp
+                ${BINDIR}/xtool -f -p -f1 $infile -f2 $infile_prev -op DIFF -of $glof -n $def_nam_tmp || \
+                    set_err "Deaccumulation of ($infile-$infile_prev) to $ARCHIVE_FORMAT using $def_nam_tmp failed"
+            fi
+            
+            lfirst=0
+            MLL_prev=$MLL
+            infile_prev=$infile
+        fi
+    done
+fi
+
+t_this=surfex_acc_mon
+cfreq=mon
+if [[ " ${t_sel[@]} " =~ " $t_this " ]] && [ "$SURFEX_LSELECT" = "yes" ] ; then
+    printf "$prfmt" $lines "Converting surfex files, $cfreq accumulated fields" $lines
+    
+    # build namelists
+    def_nam=def_nam_$t_this
+    def_nam_tmp=${def_nam}_tmp
+    cat > $def_nam << EOF
+    $nam_common
+        readkey%faname         = "SFX.RUNOFFC_ISBA"  , "SFX.DRAINC_ISBA"   ,
+                                 "SFX.EVAPC_ISBA"    , "SFX.SNOMLTC_ISBA"  ,
+        cfreq                  = "$cfreq",
+        cfiden                 = "sfx",
+        lacc2flux              = .TRUE.,
+        outkey%startstep       = insertF0here,
+        outkey%endstep         = insertFFhere,
+        ctimeis                = "middle",
+    /
+EOF
+    
+    # convert last file with gl, if begin and end are at midnight first day
+    MLL=${SFXSLIST[-1]}
+    DTGpMLL=$(mandtg $DTG + $MLL)
+    if [ "$(mandtg +%d%H $DTG)" = "0100" ] && [ "$(mandtg +%d%H $DTGpMLL)" = "0100" ] && [ $DTG -ne $DTGpMLL ]; then
+        infile=$ARCHIVE/$(hm_file_name $MLL sfxs fa)
+        insertF0nFF 0 $MLL $def_nam $def_nam_tmp
+        ${BINDIR}/gl $glflag $nameflag $infile -n $def_nam_tmp || \
+            set_err "Conversion of $infile to $ARCHIVE_FORMAT using $def_nam_tmp failed"
+    else
+        echo "    Skipping conversion for $t_this, not covering a month"
+    fi
+fi
+
+
+#--------------------------------------------------------------------------------------------------
+# Convert fullpos files, instantaneous, contents and frequency controlled via Select_postp.pl
+#--------------------------------------------------------------------------------------------------
+# 1-hourly
+t_this=fullpos
+ifreq=$ifreq1h
+cfreq=$(ifreq2cfreq $ifreq)
+if [[ " ${t_sel[@]} " =~ " $t_this " ]] && [ "$POSTP" != "none" ] ; then
+    printf "$prfmt" $lines "Converting fullpos files, $cfreq instantaneous fields" $lines
+
+    # build namelists
+    def_nam=def_nam_$t_this
+    def_nam_tmp=${def_nam}_tmp
+    cat > $def_nam << EOF
+    ! Read into memory
+    &naminterp
+        output_format          = "MEMORY",
+        readkey%faname         = "SURFPRESSION"      , "MSLPRESSURE"       ,
+                                 "CLSVENT.ZONAL"     , "CLSVENT.MERIDIEN"  ,
+                                 "H00050WIND.U.PHY"  , "H00050WIND.V.PHY"  , "H00050TEMPERATUR"  , "H00050HUMI.SPECI"  ,
+                                 "H00100WIND.U.PHY"  , "H00100WIND.V.PHY"  ,
+                                 "H00150WIND.U.PHY"  , "H00150WIND.V.PHY"  ,
+                                 "H00300WIND.U.PHY"  , "H00300WIND.V.PHY"  ,
+                                 "CLSTEMPERATURE"    , "CLSHUMI.SPECIFIQ"  , "CLSHUMI.RELATIVE"  ,
+                                 "CLPMHAUT.MOD.XFU"  , "SURFTOT.WAT.VAPO"  ,
+                                 ! arome
+                                 "SURFCAPE.POS.F00"  , "SURFCIEN.POS.F00"  ,
+                                 ! aladin/alaro
+                                 "SURFCAPE.MOD.XFU"  ,
+                                 ! auxiliary
+                                 "INTSURFGEOPOTENT"  ,
+    /
+    ! Convert fields in file, excluding geopotential
+    $nam_common
+        input_format                = "MEMORY",
+        exclkey%faname              = "INTSURFGEOPOTENT"  ,
+        user_nctrans(1)%full_name   = "CLSHUMI.RELATIVE"  ,
+        user_nctrans(1)%unit        = "%"                 ,
+        user_nctrans(1)%s_name      = ""                  ,
+        user_nctrans(2:5)%full_name = "H00050WIND.U.PHY"  , "H00050WIND.V.PHY"  , "H00050TEMPERATUR"  , "H00050HUMI.SPECI"  ,
+        user_nctrans(2:5)%l_name    = "Eastward Wind at 50m"  , "Northward Wind at 50m"  , "Air Temperature at 50m"  , "Specific Humidity at 50m"  ,
+        cfreq                       = "$cfreq",
+        cfiden                      = "fp",
+        outkey%startstep            = insertF0here,
+        outkey%endstep              = insertFFhere,
+    /
+    ! Post-process fields
+    $nam_common
+        input_format           = "MEMORY",
+        pppkey%faname          = "CLSDEWPOINTTEMP"   , "CLSWIND.VELOCITY"  ,
+        pppkey%shortname       = "td"                , "ws"                ,
+        pppkey%levtype         = "heightAboveGround" , "heightAboveGround" ,
+        pppkey%level           = 2                   , 10                  ,
+        lwrite_pponly          = .TRUE.,
+        cfreq                  = "$cfreq",
+        cfiden                 = "fp",
+        outkey%startstep       = insertF0here,
+        outkey%endstep         = insertFFhere,
+    /
+EOF
+
+    # loop over output files for conversion
+    for MLL in ${FPOUTLIST[@]} ; do
+        if [ $(($MLL%$ifreq)) -eq 0 ] ; then
+            infile=$ARCHIVE/$(hm_file_name $MLL fp fa)
+            insertF0nFF $MLL $MLL $def_nam $def_nam_tmp
+            ${BINDIR}/gl $glflag $nameflag $infile -n $def_nam_tmp || \
+                set_err "Conversion of $infile to $ARCHIVE_FORMAT using $def_nam_tmp failed"
+        fi
+    done
+fi
+
+# vertical integrals, separately because it takes long
+t_this=fullpos_vint
+ifreq=$ifreq1h
+cfreq=$(ifreq2cfreq $ifreq)
+if [[ " ${t_sel[@]} " =~ " $t_this " ]] ; then
+    printf "$prfmt" $lines "Converting fullpos files, $cfreq instantaneous, vertically integrated fields" $lines
+
+    # build namelist, with graupel for AROME only
+    def_nam=def_nam_$t_this
+    def_nam_tmp=${def_nam}_tmp
+    if [ "$PHYSICS" = "arome" ]; then
+        cat > $def_nam << EOF
+        $nam_common
+            readkey%faname     = "SURFPRESSION"      , "SNNNLIQUID_WATER"  , "SNNNSOLID_WATER"   , "SNNNGRAUPEL"       ,
+            pppkey%faname      = "TOT.NEB.WAT"       , "TOT.NEB.ICE"       , "TOT.NEB.GRAUPEL"   ,
+            pppkey%shortname   = "cwat_vint"         , "ciwc_vint"         , "grpl_vint"         ,
+            pppkey%levtype     = "entireAtmosphere"  , "entireAtmosphere"  , "entireAtmosphere"  ,
+            pppkey%level       = 0                   , 0                   , 0                   , 
+            lwrite_pponly      = .TRUE.,
+            cfreq              = "$cfreq",
+            cfiden             = "fp",
+            outkey%startstep   = insertF0here,
+            outkey%endstep     = insertFFhere,
+        /
+EOF
+    else
+        cat > $def_nam << EOF
+        $nam_common
+            readkey%faname     = "SURFPRESSION"      , "SNNNLIQUID_WATER"  , "SNNNSOLID_WATER"   ,
+            pppkey%faname      = "TOT.NEB.WAT"       , "TOT.NEB.ICE"       ,
+            pppkey%shortname   = "cwat_vint"         , "ciwc_vint"         ,
+            pppkey%levtype     = "entireAtmosphere"  , "entireAtmosphere"  ,
+            pppkey%level       = 0                   , 0                   , 
+            lwrite_pponly      = .TRUE.,
+            cfreq              = "$cfreq",
+            cfiden             = "fp",
+            outkey%startstep   = insertF0here,
+            outkey%endstep     = insertFFhere,
+        /
+EOF
+    fi
+
+    # loop over output files for conversion
+    for MLL in ${FPOUTLIST[@]} ; do
+        if [ $(($MLL%$ifreq)) -eq 0 ] ; then
+            infile=$ARCHIVE/$(hm_file_name $MLL fp fa)
+            insertF0nFF $MLL $MLL $def_nam $def_nam_tmp
+            ${BINDIR}/gl $glflag $nameflag $infile -n $def_nam_tmp || \
+                set_err "Conversion of $infile to $ARCHIVE_FORMAT using $def_nam_tmp failed"
+        fi
+    done
+fi
+
+# 6-hourly
+t_this=fullpos_6h
+ifreq=$ifreq6h
+[ $ifreq -lt $fpoutfreq ] && ifreq=$fpoutfreq
+cfreq=$(ifreq2cfreq $ifreq)
+if [[ " ${t_sel[@]} " =~ " $t_this " ]] && [ "$POSTP" != "none" ] ; then
+    printf "$prfmt" $lines "Converting fullpos files, $cfreq instantaneous fields" $lines
+
+    # construct strings with plev variables for namelists
+    plevs="1000 925 850 700 600 500 400 300 250 200"
+    selvars='"P{lev}WIND.U.PHY", "P{lev}WIND.V.PHY", "P{lev}HUMI.SPECIFI", "P{lev}TEMPERATURE", "P{lev}VERT.VELOCIT",'
+    auxvars='"P{lev}GEOPOTENTI",'
+    pppvars='"P{lev}GEOPOTHEIG",'
+    pppsnam='"gh",'
+    ppplvty='"isobaricInhPa",'
+    levlist=""
+    sellist=""
+    auxlist=""
+    ppplist=""
+    pppsnamlist=""
+    ppplvtylist=""
+    for lev in $plevs; do
+        levlist="${levlist}$lev, "
+        lev=$((10#$lev))                  # force using base 10 to avoid bash interpreting any leading zeros in the plevs variable as octal numbers (!)
+        levpa=$(printf %05d $((lev*100))) # multiply by 100 and pad to length at least 5 with leading zeros
+        levpa5=${levpa: -5}               # trim length to 5 (e.g. for the 1000 hPa level)
+        sellist="${sellist}${selvars//\{lev\}/$levpa5} "
+        auxlist="${auxlist}${auxvars//\{lev\}/$levpa5} "
+        ppplist="${ppplist}${pppvars//\{lev\}/$levpa5} "
+        pppsnamlist="${pppsnamlist}${pppsnam} "
+        ppplvtylist="${ppplvtylist}${ppplvty} "
+    done
+    
+    # build namelists
+    def_nam=def_nam_$t_this
+    def_nam_tmp=${def_nam}_tmp
+    cat > $def_nam << EOF
+    ! Read into memory
+    &naminterp
+        output_format          = "MEMORY",
+        readkey%faname         = $sellist
+                                 ! auxiliary
+                                 "SURFPRESSION"      , "INTSURFGEOPOTENT"  , "CLSTEMPERATURE"    ,
+                                 $auxlist
+   /
+    ! Convert fields in file, excluding auxiliary fields
+    $nam_common
+        input_format           = "MEMORY",
+        exclkey%faname         = "SURFPRESSION"      , "INTSURFGEOPOTENT"  , "CLSTEMPERATURE"    ,
+                                 $auxlist
+        cfreq                  = "$cfreq",
+        cfiden                 = "fp",
+        outkey%startstep       = insertF0here,
+        outkey%endstep         = insertFFhere,
+    /
+    ! Convert geopotential height
+    $nam_common
+        input_format           = "MEMORY",
+        readkey%faname         = "SURFPRESSION"      , "INTSURFGEOPOTENT"  , "CLSTEMPERATURE"    ,
+                                 $auxlist
+        pppkey%faname          = $ppplist
+        pppkey%shortname       = $pppsnamlist
+        pppkey%levtype         = $ppplvtylist
+        pppkey%level           = $levlist
+        lwrite_pponly          = .TRUE.,
+        cfreq                  = "$cfreq",
+        cfiden                 = "fp",
+        outkey%startstep       = insertF0here,
+        outkey%endstep         = insertFFhere,
+    /
+EOF
+
+    # loop over output files for conversion, only convert 6-hourly
+    for MLL in ${FPOUTLIST[@]} ; do
+        if [ $(($MLL%$ifreq)) -eq 0 ] ; then
+            infile=$ARCHIVE/$(hm_file_name $MLL fp fa)
+            insertF0nFF $MLL $MLL $def_nam $def_nam_tmp
+            ${BINDIR}/gl $glflag $nameflag $infile -n $def_nam_tmp || \
+                set_err "Conversion of $infile to $ARCHIVE_FORMAT using $def_nam_tmp failed"
+        fi
+    done
+fi
+
+
+#--------------------------------------------------------------------------------------------------
+# Convert fullpos files, min/max fields, contents and frequency controlled via Select_postp.pl
+#--------------------------------------------------------------------------------------------------
+# gust
+t_this=fullpos_gust
+ifreq=$ifreq_reset_gust
+[ $ifreq -lt $fpoutfreq ] && ifreq=$fpoutfreq
+cfreq=$(ifreq2cfreq $ifreq)
+if [[ " ${t_sel[@]} " =~ " $t_this " ]] && [ "$POSTP" != "none" ] ; then
+    printf "$prfmt" $lines "Converting fullpos files, $cfreq gust fields" $lines
+
+    # build namelist
+    def_nam=def_nam_$t_this
+    def_nam_tmp=${def_nam}_tmp
+    cat > $def_nam << EOF
+    $nam_common
+        readkey%faname         = "CLSU.RAF.MOD.XFU"  , "CLSV.RAF.MOD.XFU"  , "CLSMAX.WIND.VELO"  ,
+        pppkey%faname          = "CLSRAFALES.POS"    , "CLSMAX.WIND.VELO"  ,
+        pppkey%shortname       = "fg"                , "wsmax"             ,
+        user_nctrans%full_name = "CLSMAX.WIND.VELO"  , "CLSRAFALES.POS"    , 
+        user_nctrans%l_name    = "Daily Maximum Near-Surface Wind Speed", "Daily Maximum Near-Surface Wind Speed of Gust",
+        lwrite_pponly          = .TRUE.,
+        cfreq                  = "$cfreq",
+        cfiden                 = "fp",
+        ! for min/max fields, define start of interval
+        insertfstarthere
+        outkey%endstep         = insertFFhere,
+        ctimeis                = "middle",
+    /
+EOF
+
+    # loop over output files for conversion, convert $ifreq only, skip 0h file for min/max fields
+    for MLL in ${FPOUTLIST[@]} ; do
+        if [ $MLL -ne 0 ] && [ $(($MLL%$ifreq)) -eq 0 ] ; then
+            insertfstart $MLL $def_nam $def_nam_tmp
+
+            infile=$ARCHIVE/$(hm_file_name $MLL fp fa)
+            ${BINDIR}/gl $glflag $nameflag $infile -n $def_nam_tmp || \
+                set_err "Conversion of $infile to $ARCHIVE_FORMAT using $def_nam_tmp failed"
+        fi
+    done
+fi
+
+# min/max temp
+t_this=fullpos_tasminmax
+ifreq=$ifreq_reset_temp
+[ $ifreq -lt $fpoutfreq ] && ifreq=$fpoutfreq
+cfreq=$(ifreq2cfreq $ifreq)
+if [[ " ${t_sel[@]} " =~ " $t_this " ]] && [ "$POSTP" != "none" ] ; then
+    printf "$prfmt" $lines "Converting fullpos files, $cfreq min/max temp fields" $lines
+
+    # build namelist
+    def_nam=def_nam_$t_this
+    def_nam_tmp=${def_nam}_tmp
+    cat > $def_nam << EOF
+    $nam_common
+        readkey%faname         = "CLSMINI.TEMPERAT"  , "CLSMAXI.TEMPERAT"  ,
+        user_nctrans%full_name = "CLSMINI.TEMPERAT"  , "CLSMAXI.TEMPERAT"  ,
+        user_nctrans%l_name    = "Hourly Minimum Near-Surface Air Temperature", "Hourly Maximum Near-Surface Air Temperature",
+        cfreq                  = "$cfreq",
+        cfiden                 = "fp",
+        ! for min/max fields, define start of interval
+        insertfstarthere
+        outkey%endstep         = insertFFhere,
+        ctimeis                = "middle",
+    /
+EOF
+
+    # loop over output files for conversion, convert $ifreq only, skip 0h file for min/max fields
+    for MLL in ${FPOUTLIST[@]} ; do
+        if [ $MLL -ne 0 ] && [ $(($MLL%$ifreq)) -eq 0 ] ; then
+            insertfstart $MLL $def_nam $def_nam_tmp
+
+            infile=$ARCHIVE/$(hm_file_name $MLL fp fa)
+            ${BINDIR}/gl $glflag $nameflag $infile -n $def_nam_tmp || \
+                set_err "Conversion of $infile to $ARCHIVE_FORMAT using $def_nam_tmp failed"
+        fi
+    done
+fi
+
+
+#--------------------------------------------------------------------------------------------------
+# Convert fullpos files, accumulated fields, contents and frequency controlled via Select_postp.pl
+#--------------------------------------------------------------------------------------------------
+# hourly
+t_this=fullpos_acc
+ifreq=$ifreq1h
+cfreq=$(ifreq2cfreq $ifreq)
+if [[ " ${t_sel[@]} " =~ " $t_this " ]] && [ "$POSTP" != "none" ] ; then
+    printf "$prfmt" $lines "Converting fullpos files, $cfreq accumulated fields" $lines
+
+    # build namelists
+    def_nam=def_nam_$t_this
+    def_nam_tmp=${def_nam}_tmp
+    cat > $def_nam << EOF
+    ! direct output
+    $nam_common
+        readkey%faname              = "ATMONEBUL.BASSE"   , "ATMONEBUL.MOYENN"  , "ATMONEBUL.HAUTE"   , "ATMONEBUL.TOTALE"  ,
+                                      "SURFRAYT THER DE"  , "SOMMFLU.RAY.THER"  ,
+                                      "SURFRAYT SOLA DE"  ,
+                                      "SURFRAYT THER CL"  , "SOMMRAYT THER CL"  ,
+                                      "SURFRAYT SOL CL"   , "SOMMRAYT SOL CL"   ,
+                                      "SURFRAYT DIR SUR"  , "TOPRAYT DIR SOM"   ,
+                                      "SURFFLU.CHA.SENS"  , "SURFFLU.LAT.MTOT"  ,
+                                      "SURFFLU.MTOTA.NE"  , "SURFFLU.MSUBL.NE"  ,
+                                      "SURFTENS.TURB.ZO"  , "SURFTENS.TURB.ME"  ,
+                                      ! arome
+                                      "SURFACCPLUIE"      , "SURFACCNEIGE"      , "SURFACCGRAUPEL"    ,
+        user_nctrans(1:4)%full_name = "ATMONEBUL.BASSE"                         , "ATMONEBUL.MOYENN"                        , "ATMONEBUL.HAUTE"                         , "ATMONEBUL.TOTALE"                        ,
+        user_nctrans(1:4)%l_name    = "Accumulated Low Cloud Cover Percentage"  , "Accumulated Medium Cloud Cover Percentage","Accumulated High Cloud Cover Percentage" , "Accumulated Total Cloud Cover Percentage",
+        user_nctrans(1:4)%unit      = "% s"                                     , "% s"                                     , "% s"                                     , "% s"                                     ,
+        user_nctrans(5:8)%full_name = "SURFTENS.TURB.ZO"  , "SURFTENS.TURB.ME"  , "SOMMFLU.RAY.THER"  ,
+        user_nctrans(5:8)%ncname    = ""                  , ""                  , "rlut"              ,
+        user_nctrans(5:8)%s_name    = ""                  , ""                  , "accumulated_toa_outgoing_longwave_flux"      ,
+        user_nctrans(5:8)%l_name    = ""                  , ""                  , "Accumulated TOA Outgoing Longwave Radiation" ,
+        user_nctrans(5:8)%unit      = "Pa s"              , "Pa s"              , ""                  ,
+        user_nctrans(5:8)%positive  = ""                  , ""                  , "u"                 ,
+        cfreq                       = "$cfreq",
+        cfiden                      = "fp",
+        lacc2flux                   = .TRUE.,
+        outkey%startstep            = insertF0here,
+        outkey%endstep              = insertFFhere,
+        ctimeis                     = "middle",
+    /
+EOF
+
+    # loop over output files for conversion, skip 0h file, it doesn't contain accumulated fields
+    lfirst=1
+    if [ ${FPOUTLIST[0]} -eq 0 ]; then
+        unset FPOUTLIST[0]
+    fi
+    for MLL in ${FPOUTLIST[@]} ; do
+        if [ $(($MLL%$ifreq)) -eq 0 ]; then
+            infile=$ARCHIVE/$(hm_file_name $MLL fp fa)
+            if [ $lfirst -eq 1 ] ; then
+                # use gl, plain conversion
+                insertF0nFF 0 $MLL $def_nam $def_nam_tmp
+                ${BINDIR}/gl $glflag $nameflag $infile -n $def_nam_tmp || \
+                    set_err "Conversion of $infile to $ARCHIVE_FORMAT using $def_nam_tmp failed"
+            else
+                # use xtool to deaccumulate
+                insertF0nFF $MLL_prev $MLL $def_nam $def_nam_tmp
+                ${BINDIR}/xtool -f -p -f1 $infile -f2 $infile_prev -op DIFF -of $glof -n $def_nam_tmp || \
+                    set_err "Deaccumulation of ($infile-$infile_prev) to $ARCHIVE_FORMAT using $def_nam_tmp failed"
+            fi
+            
+            lfirst=0
+            MLL_prev=$MLL
+            infile_prev=$infile
+        fi
+    done
+fi
+
+t_this=fullpos_acc_day
+ifreq=$ifreqday
+cfreq=$(ifreq2cfreq $ifreq)
+if [[ " ${t_sel[@]} " =~ " $t_this " ]] && [ "$POSTP" != "none" ] ; then
+    printf "$prfmt" $lines "Converting fullpos files, $cfreq accumulated fields" $lines
+
+    # build namelists
+    def_nam_1=def_nam_$t_this
+    cat > $def_nam_1 << EOF
+    $nam_common
+        readkey%faname              = "ATMONEBUL.BASSE"   , "ATMONEBUL.MOYENN"  , "ATMONEBUL.HAUTE"   , "ATMONEBUL.TOTALE"  ,
+                                      "SURFRAYT THER DE"  , "SOMMFLU.RAY.THER"  ,
+                                      "SURFRAYT SOLA DE"  ,
+                                      "SURFRAYT THER CL"  , "SOMMRAYT THER CL"  ,
+                                      "SURFRAYT SOL CL"   , "SOMMRAYT SOL CL"   ,
+                                      "SURFRAYT DIR SUR"  , "TOPRAYT DIR SOM"   ,
+                                      "SURFFLU.CHA.SENS"  , "SURFFLU.LAT.MTOT"  ,
+                                      "SURFFLU.MTOTA.NE"  , "SURFFLU.MSUBL.NE"  ,
+                                      "SURFTENS.TURB.ZO"  , "SURFTENS.TURB.ME"  ,
+                                      ! arome
+                                      "SURFACCPLUIE"      , "SURFACCNEIGE"      , "SURFACCGRAUPEL"    ,
+        user_nctrans(1:4)%full_name = "ATMONEBUL.BASSE"                         , "ATMONEBUL.MOYENN"                        , "ATMONEBUL.HAUTE"                         , "ATMONEBUL.TOTALE"                        ,
+        user_nctrans(1:4)%l_name    = "Accumulated Low Cloud Cover Percentage"  , "Accumulated Medium Cloud Cover Percentage","Accumulated High Cloud Cover Percentage" , "Accumulated Total Cloud Cover Percentage",
+        user_nctrans(1:4)%unit      = "% s"                                     , "% s"                                     , "% s"                                     , "% s"                                     ,
+        user_nctrans(5:8)%full_name = "SURFTENS.TURB.ZO"  , "SURFTENS.TURB.ME"  , "SOMMFLU.RAY.THER"  ,
+        user_nctrans(5:8)%ncname    = ""                  , ""                  , "rlut"              ,
+        user_nctrans(5:8)%s_name    = ""                  , ""                  , "accumulated_toa_outgoing_longwave_flux"      ,
+        user_nctrans(5:8)%l_name    = ""                  , ""                  , "Accumulated TOA Outgoing Longwave Radiation" ,
+        user_nctrans(5:8)%unit      = "Pa s"              , "Pa s"              , ""                  ,
+        user_nctrans(5:8)%positive  = ""                  , ""                  , "u"                 ,
+        cfreq                       = "$cfreq",
+        cfiden                      = "fp",
+        lacc2flux                   = .TRUE.,
+        outkey%startstep            = insertF0here,
+        outkey%endstep              = insertFFhere,
+        ctimeis                     = "middle",
+    /
+EOF
+    # No sunshine for AROME
+    if [ "$PHYSICS" != "arome" ]; then
+        def_nam_2=def_nam_2_$t_this
+        cat > $def_nam_2 << EOF
+    $nam_common
+        readkey%faname              = "SUNSHI. DURATION"  ,
+        cfreq                       = "$cfreq",
+        cfiden                      = "fp",
+        lacc2flux                   = .FALSE.,
+        outkey%startstep            = insertF0here,
+        outkey%endstep              = insertFFhere,
+        ctimeis                     = "middle",
+    /
+EOF
+    fi
+
+    # loop over output files for conversion, skip 0h file, it doesn't contain accumulated fields
+    lfirst=1
+    if [ ${FPOUTLIST[0]} -eq 0 ]; then
+        unset FPOUTLIST[0]
+    fi
+    for MLL in ${FPOUTLIST[@]} ; do
+        if [ $(($MLL%$ifreq)) -eq 0 ]; then
+            infile=$ARCHIVE/$(hm_file_name $MLL fp fa)
+            for def_nam in $def_nam_1 $def_nam_2 ; do
+                def_nam_tmp=${def_nam}_tmp
+                if [ $lfirst -eq 1 ] ; then
+                    # use gl, plain conversion
+                    insertF0nFF 0 $MLL $def_nam $def_nam_tmp
+                    ${BINDIR}/gl $glflag $nameflag $infile -n $def_nam_tmp || \
+                        set_err "Conversion of $infile to $ARCHIVE_FORMAT using $def_nam_tmp failed"
+                else
+                    # use xtool to deaccumulate
+                    insertF0nFF $MLL_prev $MLL $def_nam $def_nam_tmp
+                    ${BINDIR}/xtool -f -p -f1 $infile -f2 $infile_prev -op DIFF -of $glof -n $def_nam_tmp || \
+                        set_err "Deaccumulation of ($infile-$infile_prev) to $ARCHIVE_FORMAT using $def_nam_tmp failed"
+                fi
+            done
+
+            lfirst=0
+            MLL_prev=$MLL
+            infile_prev=$infile
+        fi
+    done
+fi
+
+t_this=fullpos_acc_mon
+cfreq=mon
+if [[ " ${t_sel[@]} " =~ " $t_this " ]] && [ "$POSTP" != "none" ] ; then
+    printf "$prfmt" $lines "Converting fullpos files, $cfreq accumulated fields" $lines
+
+    # build namelists
+    def_nam=def_nam_$t_this
+    def_nam_tmp=${def_nam}_tmp
+    cat > $def_nam << EOF
+    $nam_common
+        readkey%faname              = "ATMONEBUL.BASSE"   , "ATMONEBUL.MOYENN"  , "ATMONEBUL.HAUTE"   , "ATMONEBUL.TOTALE"  ,
+                                      "SURFRAYT THER DE"  , "SOMMFLU.RAY.THER"  ,
+                                      "SURFRAYT SOLA DE"  ,
+                                      "SURFRAYT THER CL"  , "SOMMRAYT THER CL"  ,
+                                      "SURFRAYT SOL CL"   , "SOMMRAYT SOL CL"   ,
+                                      "SURFRAYT DIR SUR"  , "TOPRAYT DIR SOM"   ,
+                                      "SURFFLU.CHA.SENS"  , "SURFFLU.LAT.MTOT"  ,
+                                      "SURFFLU.MTOTA.NE"  , "SURFFLU.MSUBL.NE"  ,
+                                      "SURFTENS.TURB.ZO"  , "SURFTENS.TURB.ME"  ,
+                                      ! arome
+                                      "SURFACCPLUIE"      , "SURFACCNEIGE"      , "SURFACCGRAUPEL"    ,
+        user_nctrans(1:4)%full_name = "ATMONEBUL.BASSE"                         , "ATMONEBUL.MOYENN"                        , "ATMONEBUL.HAUTE"                         , "ATMONEBUL.TOTALE"                        ,
+        user_nctrans(1:4)%l_name    = "Accumulated Low Cloud Cover Percentage"  , "Accumulated Medium Cloud Cover Percentage","Accumulated High Cloud Cover Percentage" , "Accumulated Total Cloud Cover Percentage",
+        user_nctrans(1:4)%unit      = "% s"                                     , "% s"                                     , "% s"                                     , "% s"                                     ,
+        user_nctrans(5:8)%full_name = "SURFTENS.TURB.ZO"  , "SURFTENS.TURB.ME"  , "SOMMFLU.RAY.THER"  ,
+        user_nctrans(5:8)%ncname    = ""                  , ""                  , "rlut"              ,
+        user_nctrans(5:8)%s_name    = ""                  , ""                  , "accumulated_toa_outgoing_longwave_flux"      ,
+        user_nctrans(5:8)%l_name    = ""                  , ""                  , "Accumulated TOA Outgoing Longwave Radiation" ,
+        user_nctrans(5:8)%unit      = "Pa s"              , "Pa s"              , ""                  ,
+        user_nctrans(5:8)%positive  = ""                  , ""                  , "u"                 ,
+        cfreq                       = "$cfreq",
+        cfiden                      = "fp",
+        lacc2flux                   = .TRUE.,
+        outkey%startstep            = insertF0here,
+        outkey%endstep              = insertFFhere,
+        ctimeis                     = "middle",
+    /
+EOF
+
+    # convert last file with gl, if begin and end are at midnight first day
+    MLL=${FPOUTLIST[-1]}
+    DTGpMLL=$(mandtg $DTG + $MLL)
+    if [ "$(mandtg +%d%H $DTG)" = "0100" ] && [ "$(mandtg +%d%H $DTGpMLL)" = "0100" ] && [ $DTG -ne $DTGpMLL ]; then
+        infile=$ARCHIVE/$(hm_file_name $MLL fp fa)
+        insertF0nFF 0 $MLL $def_nam $def_nam_tmp
+        ${BINDIR}/gl $glflag $nameflag $infile -n $def_nam_tmp || \
+            set_err "Conversion of $infile to $ARCHIVE_FORMAT using $def_nam_tmp failed"
+    else
+        echo "    Skipping conversion for $t_this, not covering a month"
+    fi
+fi
+
+
+#--------------------------------------------------------------------------------------------------
+# Convert fullpos files, accumulated, PP fields, contents and frequency controlled via Select_postp.pl
+#--------------------------------------------------------------------------------------------------
+# some postprocessed precip fields depend on physics
+if [ "$PHYSICS" = "arome" ] ; then
+    pcp_faname=""
+    pcp_shname=""
+else
+    # aladin/alaro, convective precip available, snowfall must be summed
+    pcp_faname='"#acpcp"            , "SURFACCNEIGE"      ,'
+    pcp_shname='"acpcp"             , "snow"              ,'
+fi
+
+# highest frequency, only if not hourly
+t_this=fullpos_acc_pp
+ifreq=$fpoutfreq
+cfreq=$(ifreq2cfreq $ifreq)
+if [[ " ${t_sel[@]} " =~ " $t_this " ]] && [ "$POSTP" != "none" ] && [ $fpoutfreq -lt $ifreq1h ]; then
+    printf "$prfmt" $lines "Converting fullpos files, $cfreq accumulated PP fields" $lines
+
+    # build namelists
+    def_nam=def_nam_$t_this
+    def_nam_tmp=${def_nam}_tmp
+    cat > $def_nam << EOF
+    $nam_common
+        readkey%faname         = "SURFACCPLUIE"      , "SURFACCNEIGE"      , "SURFACCGRAUPEL"    ,
+                                 ! aladin/alaro, snowfall should be summed
+                                 "SURFPREC.EAU.CON"  , "SURFPREC.NEI.CON"  , "SURFPREC.EAU.GEC"  , "SURFPREC.NEI.GEC"  ,
+        pppkey%faname          = "TOT.WATER.PRECIP"  , "TOT.SOLID.PRECIP"  , $pcp_faname
+        pppkey%shortname       = "tp"                , "tpsolid"           , $pcp_shname
+        lwrite_pponly          = .TRUE.,
+        cfreq                  = "$cfreq",
+        cfiden                 = "fp",
+        lacc2flux              = .TRUE.,
+        outkey%startstep       = insertF0here,
+        outkey%endstep         = insertFFhere,
+        ctimeis                = "middle",
+    /
+EOF
+
+    # loop over output files for conversion, skip 0h file, it doesn't contain accumulated fields
+    lfirst=1
+    if [ ${FPOUTLIST[0]} -eq 0 ]; then
+        unset FPOUTLIST[0]
+    fi
+    for MLL in ${FPOUTLIST[@]} ; do
+        infile=$ARCHIVE/$(hm_file_name $MLL fp fa)
+        if [ $lfirst -eq 1 ] ; then
+            # use gl, plain conversion
+            insertF0nFF 0 $MLL $def_nam $def_nam_tmp
+            ${BINDIR}/gl $glflag $nameflag $infile -n $def_nam_tmp || \
+                set_err "Conversion of $infile to $ARCHIVE_FORMAT using $def_nam_tmp failed"
+        else
+            # use xtool to deaccumulate
+            insertF0nFF $MLL_prev $MLL $def_nam $def_nam_tmp
+            ${BINDIR}/xtool -f -p -f1 $infile -f2 $infile_prev -op DIFF -of $glof -n $def_nam_tmp || \
+                set_err "Deaccumulation of ($infile-$infile_prev) to $ARCHIVE_FORMAT using $def_nam_tmp failed"
+        fi
+        
+        lfirst=0
+        MLL_prev=$MLL
+        infile_prev=$infile
+    done
+fi
+
+t_this=fullpos_acc_pp
+ifreq=$ifreq1h
+cfreq=$(ifreq2cfreq $ifreq)
+if [[ " ${t_sel[@]} " =~ " $t_this " ]] && [ "$POSTP" != "none" ] ; then
+    printf "$prfmt" $lines "Converting fullpos files, $cfreq accumulated PP fields" $lines
+
+    # build namelists
+    def_nam=def_nam_$t_this
+    def_nam_tmp=${def_nam}_tmp
+    cat > $def_nam << EOF
+    $nam_common
+        readkey%faname         = "SURFRAYT THER DE"  , "SURFFLU.RAY.THER"  ,
+                                 "SURFRAYT SOLA DE"  , "SURFFLU.RAY.SOLA"  ,
+                                 "TOPRAYT DIR SOM"   , "SOMMFLU.RAY.SOLA"  ,
+                                 ! arome
+                                 "SURFACCPLUIE"      , "SURFACCNEIGE"      , "SURFACCGRAUPEL"    ,
+                                 ! aladin/alaro, snowfall should be summed
+                                 "SURFPREC.EAU.CON"  , "SURFPREC.NEI.CON"  , "SURFPREC.EAU.GEC"  , "SURFPREC.NEI.GEC"  ,
+        pppkey%faname          = "TOT.WATER.PRECIP"  , "TOT.SOLID.PRECIP"  , "#ulwrs"            , "#uswrs"            , "#uswrt"            , $pcp_faname
+        pppkey%shortname       = "tp"                , "tpsolid"           , "ulwrs"             , "uswrs"             , "uswrt"             , $pcp_shname
+        lwrite_pponly          = .TRUE.,
+        cfreq                  = "$cfreq",
+        cfiden                 = "fp",
+        lacc2flux              = .TRUE.,
+        outkey%startstep       = insertF0here,
+        outkey%endstep         = insertFFhere,
+        ctimeis                = "middle",
+    /
+EOF
+
+    # loop over output files for conversion, skip 0h file, it doesn't contain accumulated fields
+    lfirst=1
+    if [ ${FPOUTLIST[0]} -eq 0 ]; then
+        unset FPOUTLIST[0]
+    fi
+    for MLL in ${FPOUTLIST[@]} ; do
+        if [ $(($MLL%$ifreq)) -eq 0 ]; then
+            infile=$ARCHIVE/$(hm_file_name $MLL fp fa)
+            if [ $lfirst -eq 1 ] ; then
+                # use gl, plain conversion
+                insertF0nFF 0 $MLL $def_nam $def_nam_tmp
+                ${BINDIR}/gl $glflag $nameflag $infile -n $def_nam_tmp || \
+                    set_err "Conversion of $infile to $ARCHIVE_FORMAT using $def_nam_tmp failed"
+            else
+                # use xtool to deaccumulate
+                insertF0nFF $MLL_prev $MLL $def_nam $def_nam_tmp
+                ${BINDIR}/xtool -f -p -f1 $infile -f2 $infile_prev -op DIFF -of $glof -n $def_nam_tmp || \
+                    set_err "Deaccumulation of ($infile-$infile_prev) to $ARCHIVE_FORMAT using $def_nam_tmp failed"
+            fi
+            
+            lfirst=0
+            MLL_prev=$MLL
+            infile_prev=$infile
+        fi
+    done
+fi
+
+t_this=fullpos_acc_day_pp
+ifreq=$ifreqday
+cfreq=$(ifreq2cfreq $ifreq)
+if [[ " ${t_sel[@]} " =~ " $t_this " ]] && [ "$POSTP" != "none" ] ; then
+    printf "$prfmt" $lines "Converting fullpos files, $cfreq accumulated PP fields" $lines
+
+    # build namelists
+    def_nam=def_nam_$t_this
+    def_nam_tmp=${def_nam}_tmp
+    cat > $def_nam << EOF
+    $nam_common
+        readkey%faname         = "SURFRAYT THER DE"  , "SURFFLU.RAY.THER"  ,
+                                 "SURFRAYT SOLA DE"  , "SURFFLU.RAY.SOLA"  ,
+                                 "TOPRAYT DIR SOM"   , "SOMMFLU.RAY.SOLA"  ,
+                                 ! arome
+                                 "SURFACCPLUIE"      , "SURFACCNEIGE"      , "SURFACCGRAUPEL"    ,
+                                 ! aladin/alaro, snowfall should be summed
+                                 "SURFPREC.EAU.CON"  , "SURFPREC.NEI.CON"  , "SURFPREC.EAU.GEC"  , "SURFPREC.NEI.GEC"  ,
+        pppkey%faname          = "TOT.WATER.PRECIP"  , "TOT.SOLID.PRECIP"  , "#ulwrs"            , "#uswrs"            , "#uswrt"            , $pcp_faname
+        pppkey%shortname       = "tp"                , "tpsolid"           , "ulwrs"             , "uswrs"             , "uswrt"             , $pcp_shname
+        lwrite_pponly          = .TRUE.,
+        cfreq                  = "$cfreq",
+        cfiden                 = "fp",
+        lacc2flux              = .TRUE.,
+        outkey%startstep       = insertF0here,
+        outkey%endstep         = insertFFhere,
+        ctimeis                = "middle",
+    /
+EOF
+
+    # loop over output files for conversion, skip 0h file, it doesn't contain accumulated fields
+    lfirst=1
+    if [ ${FPOUTLIST[0]} -eq 0 ]; then
+        unset FPOUTLIST[0]
+    fi
+    for MLL in ${FPOUTLIST[@]} ; do
+        if [ $(($MLL%$ifreq)) -eq 0 ]; then
+            infile=$ARCHIVE/$(hm_file_name $MLL fp fa)
+            if [ $lfirst -eq 1 ] ; then
+                # use gl, plain conversion
+                insertF0nFF 0 $MLL $def_nam $def_nam_tmp
+                ${BINDIR}/gl $glflag $nameflag $infile -n $def_nam_tmp || \
+                    set_err "Conversion of $infile to $ARCHIVE_FORMAT using $def_nam_tmp failed"
+            else
+                # use xtool to deaccumulate
+                insertF0nFF $MLL_prev $MLL $def_nam $def_nam_tmp
+                ${BINDIR}/xtool -f -p -f1 $infile -f2 $infile_prev -op DIFF -of $glof -n $def_nam_tmp || \
+                    set_err "Deaccumulation of ($infile-$infile_prev) to $ARCHIVE_FORMAT using $def_nam_tmp failed"
+            fi
+
+            lfirst=0
+            MLL_prev=$MLL
+            infile_prev=$infile
+        fi
+    done
+fi
+
+t_this=fullpos_acc_mon_pp
+cfreq=mon
+if [[ " ${t_sel[@]} " =~ " $t_this " ]] && [ "$POSTP" != "none" ] ; then
+    printf "$prfmt" $lines "Converting fullpos files, $cfreq accumulated PP fields" $lines
+
+    # build namelists
+    def_nam=def_nam_$t_this
+    def_nam_tmp=${def_nam}_tmp
+    cat > $def_nam << EOF
+    $nam_common
+        readkey%faname         = "SURFRAYT THER DE"  , "SURFFLU.RAY.THER"  ,
+                                 "SURFRAYT SOLA DE"  , "SURFFLU.RAY.SOLA"  ,
+                                 "TOPRAYT DIR SOM"   , "SOMMFLU.RAY.SOLA"  ,
+                                 ! arome
+                                 "SURFACCPLUIE"      , "SURFACCNEIGE"      , "SURFACCGRAUPEL"    ,
+                                 ! aladin/alaro, snowfall should be summed
+                                 "SURFPREC.EAU.CON"  , "SURFPREC.NEI.CON"  , "SURFPREC.EAU.GEC"  , "SURFPREC.NEI.GEC"  ,
+        pppkey%faname          = "TOT.WATER.PRECIP"  , "TOT.SOLID.PRECIP"  , "#ulwrs"            , "#uswrs"            , "#uswrt"            , $pcp_faname
+        pppkey%shortname       = "tp"                , "tpsolid"           , "ulwrs"             , "uswrs"             , "uswrt"             , $pcp_shname
+        lwrite_pponly          = .TRUE.,
+        cfreq                  = "$cfreq",
+        cfiden                 = "fp",
+        lacc2flux              = .TRUE.,
+        outkey%startstep       = insertF0here,
+        outkey%endstep         = insertFFhere,
+        ctimeis                = "middle",
+    /
+EOF
+
+    # convert last file with gl, if begin and end are at midnight first day
+    MLL=${FPOUTLIST[-1]}
+    DTGpMLL=$(mandtg $DTG + $MLL)
+    if [ "$(mandtg +%d%H $DTG)" = "0100" ] && [ "$(mandtg +%d%H $DTGpMLL)" = "0100" ] && [ $DTG -ne $DTGpMLL ]; then
+        infile=$ARCHIVE/$(hm_file_name $MLL fp fa)
+        insertF0nFF 0 $MLL $def_nam $def_nam_tmp
+        ${BINDIR}/gl $glflag $nameflag $infile -n $def_nam_tmp || \
+            set_err "Conversion of $infile to $ARCHIVE_FORMAT using $def_nam_tmp failed"
+    else
+        echo "    Skipping conversion for $t_this, not covering a month"
+    fi
+fi
+
+
+#--------------------------------------------------------------------------------------------------
+# Convert climate files
+#--------------------------------------------------------------------------------------------------
+t_this=climate
+if [[ " ${t_sel[@]} " =~ " $t_this " ]] ; then
+    printf "$prfmt" $lines "Converting climate" $lines
+
+    # Patch Variables
+    patchvars=''
+    patch_vars_list='PATCH DROOT_DIF DTOT_DIF' #List of patch variables to be converted. Separated by spaces and without 'X00n' prefix
+    # loop over patches
+    for PV in $patch_vars_list ; do
+            for i in $(seq 1 $NPATCH) ; do
+                patchvars="$patchvars"\"$(printf "X%03d" $i)$PV\"", ${nl}"
+            done
+    done
+
+    # Level Variables
+    export NLEV=14
+    levelvars=''
+    level_vars_list='SFX.WWILT SFX.WFC SFX.WSAT' #List of patch variables to be converted. Separated by spaces
+    # loop over levels
+    for LV in $level_vars_list ; do
+            for i in $(seq 1 $NLEV) ; do
+                levelvars="$levelvars"\"$LV$i\"", ${nl}"
+            done
+    done
+
+    # Patch and Level Variables
+    patchlevelvars=''
+    patch_lev_vars_list='DG' #List of patch and level variables to be converted. Separated by spaces
+    # loop over levels and patches
+    for PLV in $patch_lev_vars_list ; do
+            for i in $(seq 1 $NPATCH) ; do
+                for j in $(seq 1 $NLEV) ; do
+                    patchlevelvars="$patchlevelvars"\"$(printf "X%03d" $i)$PLV$j\"", ${nl}"
+                done
+            done
+    done
+
+    # build namelists
+    cat > def_nam_clim << EOF
+    $nam_common
+        infile                 = "$CLIMDIR/m$MM",
+        readkey%faname         = "SURFIND.TERREMER"  ,
+        cfiden                 = "clim",
+        cfreq                  = "fx",
+        lclimate_fields        = .TRUE.,
+        lvertices              = .TRUE.,
+    /
+EOF
+    cat > def_nam_ccsfx << EOF
+    $nam_common
+        infile                 = "$CLIMDIR/Const.Clim.sfx",
+        readkey%faname         = "SFX.ZS"            ,
+                                 "SFX.FRAC_SEA"      , "SFX.FRAC_WATER"    , "SFX.FRAC_NATURE"   , "SFX.FRAC_TOWN"     ,
+        user_nctrans%full_name = "SFX.FRAC_SEA"      , "SFX.FRAC_WATER"    , "SFX.FRAC_NATURE"   , "SFX.FRAC_TOWN"     ,
+        user_nctrans%unit      = "%"                 , "%"                 , "%"                 , "%"                 ,
+        user_nctrans%l_name    = "Percentage of the Grid Cell Occupied by Sea", "Percentage of the Grid Cell Occupied by Lake", "Percentage of the Grid Cell Occupied by Nature", "Percentage of the Grid Cell Occupied by City"
+        cfiden                 = "clim",
+        cfreq                  = "fx",
+        lclimate_fields        = .TRUE.,
+        lvertices              = .TRUE.,
+    /
+EOF
+    cat > def_nam_sfxini << EOF
+    $nam_common
+        infile                 = "$INT_SINI_FILE",
+        readkey%faname         = "SFX.DX"            , "SFX.DY"            , ${patchvars}
+                                 ${levelvars}
+                                 "SFX.DTOTDF_ISBA"   ,
+                                 ${patchlevelvars}
+        cfiden                 = "clim",
+        cfreq                  = "fx",
+        lclimate_fields        = .TRUE.,
+        lvertices              = .TRUE.,
+    /
+EOF
+    # convert the files
+    for def_nam in def_nam_clim def_nam_ccsfx def_nam_sfxini ; do
+        ${BINDIR}/gl $glflag $nameflag -n $def_nam  || \
+            set_err "Conversion of climate file to $ARCHIVE_FORMAT using $def_nam failed"
+    done
+fi
+
+
+#--------------------------------------------------------------------------------------------------
+# Convert from netcdf3 to netcdf4, if required
+#--------------------------------------------------------------------------------------------------
+# loop over files, preserve name
+if [ "$nc3to4" = "yes" ] ; then
+    printf "$prfmt" $lines "Converting files from netcdf3 to netcdf4" $lines
+    find . -name "*$fileext" -print0 | while read -d $'\0' F ; do
+        echo "  - $F"
+        ( nccopy -k 4 -d 1 -s $F ${F}4 && mv ${F}4 $F ) || \
+            set_err "Converting $F to netcdf4 with nccopy failed"
+    done
+fi
+
+
+#--------------------------------------------------------------------------------------------------
+# Move nc files to ARCHIVE, GRIB files are written to ARCHIVE by gl directly
+#--------------------------------------------------------------------------------------------------
+if [ "$ARCHIVE_FORMAT" = "nc" ] ; then
+    printf "$prfmt" $lines "Moving converted files to $ARCHIVE" $lines
+    find . -name "*$fileext" -print0 | while read -d $'\0' F ; do
+        mv -v $F $ARCHIVE/$F || \
+            set_err "Moving $F to $ARCHIVE failed"
+    done
+fi
+
+
+#--------------------------------------------------------------------------------------------------
+# Copy/Link nc files listed in RCATVARS to RCATDIR
+#--------------------------------------------------------------------------------------------------
+if [ "$ARCHIVE_FORMAT" = "nc" ] && [ $RCATDIR ] && [ "$RCATVARS" ] ; then
+
+    if [ "$RCATCPLN" = "cp" ]; then
+        rcatdir_action="cp -v "
+        rcatdir_descr="Copying"
+    elif [ "$RCATCPLN" = "ln" ]; then
+        rcatdir_action="ln -sf "
+        rcatdir_descr="Linking"
+    fi
+
+    printf "$prfmt" $lines "$rcatdir_descr RCATVARS ($(echo $RCATVARS | sed 's/ //g')) files to $RCATDIR" $lines
+    for rcatvar in $(IFS=:; echo $RCATVARS) ; do
+        cfreq=""
+        # find matching files (caveat: might be too greedy if $csep is in var name, e.g. hfls & hfls_eva)
+        ffs=$(cd $ARCHIVE; ls $rcatvar$csep*$fileext 2> /dev/null)
+        for F in $ffs ; do
+            # Try to retrieve frequency from file name, first time varying, then fx
+            cfreq=$(echo $F | sed -n "s/^.*${csep}\([0-9]\+\(min\|hr\)\|hr\|day\|mon\)${csep}.*$/\1/p")
+            [[ -z $cfreq ]] && cfreq=$(echo $F | sed -n "s/^.*${csep}\(fx\)$fileext$/\1/p")
+            if [ -z $cfreq ] ; then
+                set_err "Failed to derive cfreq for $F"
+            else
+                vdir=$RCATDIR/$cfreq/$rcatvar
+                $MKDIR $vdir
+                $rcatdir_action $ARCHIVE/$F $vdir/$F || \
+                    set_err "$rcatdir_descr $F to $vdir failed"
+            fi
+        done
+    done
+fi
+
+
+#--------------------------------------------------------------------------------------------------
+# Show errors and exit, if any
+#--------------------------------------------------------------------------------------------------
+show_errs
+
+# remove working directory
+cd ..
+rm -fr $WDIR
+
+
+#--------------------------------------------------------------------------------------------------
+# Finish
+#--------------------------------------------------------------------------------------------------
+echo "$0 ${@}: finished ($(date +'%Y-%m-%d %H:%M:%S'))"
+
+trap - 0
+exit
