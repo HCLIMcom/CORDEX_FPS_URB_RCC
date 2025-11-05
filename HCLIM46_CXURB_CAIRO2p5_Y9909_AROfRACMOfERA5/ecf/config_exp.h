@@ -40,7 +40,7 @@ FP_PRECISION=dual                     # double|single|dual  (if makeup config fi
 [ "$FP_PRECISION" = "dual" ] && BINDIR=$HM_DATA/bin/R64
 
 # **** Model geometry ****
-DOMAIN=CAIRO2.5_300px                   # See definitions in scr/Harmonie_domains.pm
+DOMAIN=CAIRO2.5_450px                   # See definitions in scr/Harmonie_domains.pm
 TOPO_SOURCE=gmted2010                   # Input source for orography. Available are (gmted2010|gtopo30)
 GRID_TYPE=LINEAR                        # Type of grid (LINEAR|QUADRATIC|CUBIC)
 VLEV=65                                 # Vertical level definition name
@@ -380,8 +380,7 @@ SOIL_TEXTURE_VERSION=SOILGRID           # Soil texture input data FAO|HWSD_v2|SO
 REF_CLIMDIR=ec:/hlam/harmonie_climdir/release-43h2.1.1/$DOMAIN/$GRID_TYPE/$ECOCLIMAP_VERSION
 
 # **** Archiving settings ****
-echo "BERT!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! RE-ENABLE archiving"
-ARCHIVE_ECMWF=no # yes                       # Archive to $ECFSLOC at ECMWF (yes|no)
+ARCHIVE_ECMWF=yes                       # Archive to $ECFSLOC at ECMWF (yes|no)
 # Archiving selection syntax, settings done below
 #
 # [fc|an|pp]_[fa|gr|nc] : Output from

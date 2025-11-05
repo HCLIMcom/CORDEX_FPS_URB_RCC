@@ -67,10 +67,10 @@ sub Harmonie_domains{
       'LAT0'   => -28.873,                         # Reference latitude of projection
       'GSIZE'  => 2500.,                            # Grid size in meters (assuming 0.0275 deg ≈ ~2.5 km)
    },
-   'CAIRO2.5_300px'=>{
+   'CAIRO2.5_450px'=>{
       'TSTEP'  => '75',
-      'NLON'   => '300',
-      'NLAT'   => '300',
+      'NLON'   => '450',
+      'NLAT'   => '450',
       'LONC'   => '31.3',
       'LATC'   => '30.0',
       'LON0'   => '31.3',
